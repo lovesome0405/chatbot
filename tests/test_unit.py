@@ -110,4 +110,4 @@ def test_claim_that_echoes_question_is_dropped():
     v = verify([{"text": "성적우수장학금은 신입생도 1학기에 받을 수 있어?", "citations": [{"id": "E1", "quote": "신입생은 2학기부터 적용"}]},
                 {"text": "신입생은 2학기부터 적용돼.", "citations": [{"id": "E1", "quote": "신입생은 2학기부터 적용"}]}], evs, question=q)
     assert [c[0] for c in v.claims] == ["신입생은 2학기부터 적용돼."]
-    assert {"reason": "echoes_question"} in v.dropped
+    assert any(d["reason"] == "echoes_question" for d in v.dropped)

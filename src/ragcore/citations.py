@@ -82,7 +82,7 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
     for claim in claims:
         text = str(claim.get("text", "")).strip()
         if _echoes_question(text, question):
-            out.dropped.append({"reason": "echoes_question"})
+            out.dropped.append({"reason": "echoes_question", "claim": text[:200]})
             continue
         good: list[tuple[Evidence, str]] = []
         for cit in claim.get("citations") or []:
@@ -90,11 +90,12 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
             quote = str(cit.get("quote", "")).strip()
             if ev is None:
                 out.unknown_ids += 1
-                out.dropped.append({"reason": "unknown_citation_id"})
+                out.dropped.append({"reason": "unknown_citation_id", "claim": text[:200], "eid": str(cit.get("id"))})
                 continue
             if not quote_in_source(quote, ev.text):
                 out.quote_misses += 1
-                out.dropped.append({"reason": "quote_not_in_source", "eid": ev.eid})
+                out.dropped.append({"reason": "quote_not_in_source", "eid": ev.eid, "claim": text[:200], "quote": quote[:200],
+                                    "source_text": ev.text[:300]})
                 continue
             good.append((ev, quote))
         if not text or not good:
@@ -104,7 +105,7 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
         missing = [v for v in key_values(text) if v not in cited_vals and v not in cited_text]
         if missing:
             out.value_mismatches += 1
-            out.dropped.append({"reason": "value_not_in_cited_source", "values": missing})
+            out.dropped.append({"reason": "value_not_in_cited_source", "values": missing, "claim": text[:200]})
             continue
         out.claims.append((text, good))
     return out

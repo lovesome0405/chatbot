@@ -158,7 +158,8 @@ class Engine:
             checked.claims = self._drop_period_contradictions(checked, as_of)
         dbg |= {"gen_ms": round(gen.latency_ms, 1), "abstain": gen.abstain, "dropped": checked.dropped,
                 "unknown_ids": checked.unknown_ids, "quote_misses": checked.quote_misses,
-                "value_mismatches": checked.value_mismatches, "raw_claims": len(gen.claims)}
+                "value_mismatches": checked.value_mismatches, "raw_claims": len(gen.claims),
+                "raw_output": gen.raw[:2000] if gen.raw else None, "evidence_ids": [(e.eid, e.source_id, e.locator) for e in body]}
         if not checked.claims:
             rel = [citation_from(e, e.text[:120], "관련 원문(답변 근거 아님)") for e in body[:3]]
             return PartResult("insufficient_evidence", message=msg("insufficient", lang), related=rel, model_calls=1,
@@ -176,7 +177,7 @@ class Engine:
         for text, good in checked.claims:
             in_period = any(ev.valid_from and ev.valid_to and ev.valid_from <= as_of <= ev.valid_to for ev, _ in good)
             if in_period and any(n in text.lower() for n in self.NEGATION):
-                checked.dropped.append({"reason": "contradicts_valid_period"})
+                checked.dropped.append({"reason": "contradicts_valid_period", "claim": text[:200]})
                 continue
             kept.append((text, good))
         return kept
