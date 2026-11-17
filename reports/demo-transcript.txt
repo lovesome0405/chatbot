@@ -1,0 +1,47 @@
+서버: embedder=multilingual-e5-small@614241f generator=ollama:qwen2.5:3b db=True
+데이터 표시: 장학표=실제 공개 원문 / 식단·공지·MARU 장소=저장소 데이터 / 경복궁 특별 개방 공지=합성 데이터
+
+── 1. 오늘 점심 (정형 조회, 모델 호출 없음)
+   [lolypoly] Q: 오늘 점심 뭐야?  (기준 2026-11-10T12:00:00)
+   → answered / structured / 0.0s
+   2026-11-10(화) 중식 메뉴: 상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자 [1]
+   [1] 2026-11-10(화) 중식 식단 · 저장소 데이터 · 식단 > 2026-11-10(화) 중식
+       “상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자” https://www.kopo.ac.kr/chuncheon/content.do?menu=4819 (LOLYPOLY 저장소 fixture (공식 홈페이지 2026-11-02 수집본), lolypoly@afe70e2)
+   메모: 기준 시각을 식단 fixture가 있는 2026-11-10으로 고정. 실제 오늘(11-17)은 레코드가 없어 '레코드 없음'을 돌려준다
+
+── 2. 장학표의 한 행 인용 (문서 검색 + 생성 + 인용 검증)
+   [lolypoly] Q: 학과수석 입학자는 장학금 얼마나 받아?
+   → answered / document / 33.4s
+   성적우수 장학금은 학과수석 입학자에게 1년간 교육비 전액을 제공합니다. [1]
+   [1] 한국폴리텍대학 춘천캠퍼스 장학제도 · 실제 공개 원문 · 장학제도 표 > 행 2 (교내 / 성적우수 장학금)
+       “[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 학과수석 입학자 1명 | 지급액 및 기간: 1년간 교육비 전액면제 | 비고: 직전학기 성적 3.0이상” https://www.kopo.ac.kr/chuncheon/content.do?menu=4799 (확인 시각 2026-11-17 08:26 UTC)
+   메모: '학과수석 입학자' 행과 '직전학기 성적우수자' 행이 섞이지 않는지 locator로 확인
+
+── 3. 같은 서버, MARU 키로 영어 문화 질문 (한국어 원문 검색)
+   [maru] Q: Tell me about Jongmyo Shrine
+   → answered / document / 37.9s
+   조선 왕실의 제례와 조상 숭배 문화를 이해할 수 있는 유교 유산입니다. [1]
+   종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구 [2]
+   주소: 서울특별시 종로구 종로 157 [3]
+   [1] 종묘 (Jongmyo Shrine) · 저장소 데이터 · 종묘 (Jongmyo Shrine) > 문단 3
+       “조선 왕실의 제례와 조상 숭배 문화를 이해할 수 있는 유교 유산입니다.” https://github.com/lovesome0405/ari/blob/a3a5f0f629af4433dfdfd6f353c664f19756d09c/ari_culture_resources_appjs.json (MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전))
+   [2] 종묘 (Jongmyo Shrine) · 저장소 데이터 · 종묘 (Jongmyo Shrine) > 문단 1
+       “종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구” https://github.com/lovesome0405/ari/blob/a3a5f0f629af4433dfdfd6f353c664f19756d09c/ari_culture_resources_appjs.json (MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전))
+   [3] 종묘 (Jongmyo Shrine) · 저장소 데이터 · 종묘 (Jongmyo Shrine) > 문단 2
+       “주소: 서울특별시 종로구 종로 157” https://github.com/lovesome0405/ari/blob/a3a5f0f629af4433dfdfd6f353c664f19756d09c/ari_culture_resources_appjs.json (MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전))
+   메모: 영어 질문 → 한국어 근거 검색 → 영어 답변, 지명·출처 링크 보존
+
+── 4. 기간이 끝난 공지 → 답변 보류
+   [maru] Q: Is the Gyeongbokgung special opening open now?  (기준 2026-11-17T12:00:00)
+   → insufficient_evidence / document / 0.0s
+   I couldn't find this in the verified sources. This depends on the current date (prices, hours, opening status), and no source valid for the current date was found, so I can't confirm it. [1][2][3][4]
+   [1] 경복궁 (Gyeongbokgung Palace) · 저장소 데이터 · 경복궁 (Gyeongbokgung Palace) > 문단 6 · 답변 근거 아님(시점 미확인)
+       “실내/실외: 실외, 걷기 난이도: 보통” https://github.com/lovesome0405/ari/blob/a3a5f0f629af4433dfdfd6f353c664f19756d09c/ari_culture_resources_appjs.json (MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전))
+   [2] 경복궁 (Gyeongbokgung Palace) · 저장소 데이터 · 경복궁 (Gyeongbokgung Palace) > 문단 1 · 답변 근거 아님(시점 미확인)
+       “경복궁 (Gyeongbokgung Palace) — 궁궐 / 종로구” https://github.com/lovesome0405/ari/blob/a3a5f0f629af4433dfdfd6f353c664f19756d09c/ari_culture_resources_appjs.json (MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전))
+   [3] [합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) · 합성 데이터 · [합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) > 문단 1 · 기간 종료(2026-09-01~2026-10-31), 답변 근거 아님
+       “경복궁 한시 특별 개방 기간은 2026-09-01부터 2026-10-31까지다.”  (적용 기간 2026-09-01 ~ 2026-10-31)
+   [4] [합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) · 합성 데이터 · [합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) > 문단 2 · 기간 종료(2026-09-01~2026-10-31), 답변 근거 아님
+       “특별 개방 기간에는 평소 공개하지 않는 일부 구역을 정해진 시간에 관람할 수 있다(합성 예시 문장).”  (적용 기간 2026-09-01 ~ 2026-10-31)
+   메모: 공지(합성)의 적용 기간 2026-09-01~10-31이 지났으므로 현재 개방 여부를 확정하지 않는다
+

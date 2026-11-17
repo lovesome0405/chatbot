@@ -1,0 +1,28 @@
+[project]
+name = "ragcore"
+version = "0.1.0"
+description = "한국어 대학 생활정보·서울 전통문화 안내 공통 RAG 엔진 (PostgreSQL+pgvector, FastAPI)"
+requires-python = ">=3.12"
+dependencies = [
+  "psycopg[binary]==3.2.12",
+  "pgvector==0.4.1",
+  "fastapi==0.121.2",
+  "uvicorn==0.38.0",
+  "httpx==0.28.1",
+  "numpy==2.3.4",
+  "pydantic==2.12.4",
+]
+
+[project.optional-dependencies]
+e5 = ["onnxruntime==1.23.2", "tokenizers==0.22.1"]
+test = ["pytest==8.4.2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

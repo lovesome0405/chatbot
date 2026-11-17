@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MARU RAG 데모</title>
+<style>
+  :root { --bg:#faf8f4; --fg:#1d1b18; --muted:#6b645a; --line:#ddd5c8; --accent:#7a3b1d; --warn:#8a5a00; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#191714; --fg:#f1ece4; --muted:#b2a998; --line:#3a352e; --accent:#e3a27d; --warn:#e8c168; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, "Noto Sans KR", sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:1.35rem; margin:0 0 4px; }
+  p.sub { color:var(--muted); margin:0 0 20px; font-size:.92rem; }
+  form { display:flex; gap:8px; flex-wrap:wrap; }
+  input, select, button { font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:transparent; color:inherit; }
+  input { flex:1 1 260px; min-width:0; }
+  button { background:var(--accent); color:var(--bg); border-color:var(--accent); cursor:pointer; min-height:44px; }
+  #out { margin-top:20px; white-space:pre-wrap; border-top:1px solid var(--line); padding-top:16px; }
+  .status { font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  ol { padding-left:20px; } li { margin:6px 0; font-size:.9rem; } .tag { color:var(--warn); font-size:.8rem; }
+  code { font-size:.85em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MARU 전통문화 질문 (로컬 데모)</h1>
+  <p class="sub">공개 MARU 범위 중계 엔드포인트 <code>/v1/public/chat</code>만 호출한다. 키 없음. 앱 데이터·합성 데이터는 출처 옆에 표시한다.</p>
+  <form id="f">
+    <input id="q" value="Where can I learn about Joseon royal rituals before visiting a palace?" aria-label="질문">
+    <select id="course" aria-label="선택한 코스">
+      <option value="">코스 선택 안 함</option>
+      <option value="palace-history-course">궁궐 역사 산책 코스</option>
+      <option value="rainy-day-indoor-heritage">비 오는 날 실내 전통문화 코스</option>
+    </select>
+    <button>묻기</button>
+  </form>
+  <div id="out" aria-live="polite"></div>
+</main>
+<script>
+const API = new URLSearchParams(location.search).get('api') || 'http://127.0.0.1:8088/v1/public/chat';
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const out = document.getElementById('out');
+  out.textContent = '검색·생성 중… (로컬 CPU 모델은 수십 초 걸릴 수 있음)';
+  const course = document.getElementById('course').value;
+  try {
+    const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: document.getElementById('q').value, context: course ? { course_id: course } : {} }) });
+    const d = await r.json();
+    const tag = (t) => t === 'synthetic' ? ' <span class="tag">[합성 데이터]</span>' : t === 'repository_data' ? ' <span class="tag">[앱 데이터]</span>' : '';
+    out.innerHTML = `<div class="status">${esc(d.status)} · ${esc(d.route)} · 기준 ${esc(d.as_of)}</div><p>${esc(d.answer)}</p><ol>` +
+      (d.citations || []).map((c) => `<li>${c.url ? `<a href="${esc(c.url)}">${esc(c.title)}</a>` : esc(c.title)}${tag(c.source_type)}<br>“${esc(c.quote)}” ${c.note ? `(${esc(c.note)})` : ''}</li>`).join('') + '</ol>';
+  } catch (err) {
+    out.textContent = '일시 오류: 답변 서버에 연결하지 못했어. (로컬 안내를 RAG 답변으로 표시하지 않음)';
+  }
+});
+</script>
+</body>
+</html>

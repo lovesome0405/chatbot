@@ -1,0 +1,2506 @@
+{
+ "meta": {
+  "run_at": "2026-11-17T18:05:02+09:00",
+  "questions": 37,
+  "by_project": {
+   "lolypoly": 19,
+   "maru": 17,
+   "campus-library": 1
+  },
+  "embedder": "multilingual-e5-small@614241f",
+  "generator": "ollama:qwen2.5:3b",
+  "chunker": "v1-2026-11-17",
+  "settings": {
+   "keyword_top_n": 10,
+   "vector_top_n": 10,
+   "rrf_k": 60,
+   "final_top_k": 4
+  },
+  "vector_min_sim": 0.8,
+  "environment": {
+   "python": "3.13.18",
+   "machine": "x86_64",
+   "cpus": 4,
+   "platform": "Linux-6.18.44-fc-v553-x86_64-with-glibc2.39"
+  }
+ },
+ "retrieval": {
+  "definition": "Hit@3 = 상위 3개 원본 ID(조각을 원본 단위로 접음) 중 기대 출처가 하나라도 있으면 1. 대상: 기대 경로=document, 기대 출처 있음, 기간 만료 의도 제외",
+  "modes": {
+   "keyword": {
+    "hit_at_3": 21,
+    "denominator": 21,
+    "rate": 1.0,
+    "mean_latency_ms": 2.2
+   },
+   "vector": {
+    "hit_at_3": 19,
+    "denominator": 21,
+    "rate": 0.905,
+    "mean_latency_ms": 8.4
+   },
+   "hybrid": {
+    "hit_at_3": 21,
+    "denominator": 21,
+    "rate": 1.0,
+    "mean_latency_ms": 7.8
+   },
+   "ari_baseline": {
+    "hit_at_3": 6,
+    "denominator": 11,
+    "rate": 0.545,
+    "mean_latency_ms": 0.2
+   }
+  },
+  "per_question": [
+   {
+    "id": "L06",
+    "project": "lolypoly",
+    "gold": [
+     "kopo-4799-scholarship"
+    ],
+    "row_hit": {
+     "keyword": true,
+     "vector": true,
+     "hybrid": true
+    },
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship",
+      "notice:787646"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship",
+      "notice:787646"
+     ]
+    }
+   },
+   {
+    "id": "L07",
+    "project": "lolypoly",
+    "gold": [
+     "kopo-4799-scholarship"
+    ],
+    "row_hit": {
+     "keyword": true,
+     "vector": true,
+     "hybrid": true
+    },
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship"
+     ]
+    }
+   },
+   {
+    "id": "L08",
+    "project": "lolypoly",
+    "gold": [
+     "kopo-4799-scholarship"
+    ],
+    "row_hit": {
+     "keyword": true,
+     "vector": true,
+     "hybrid": true
+    },
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship"
+     ]
+    }
+   },
+   {
+    "id": "L09",
+    "project": "lolypoly",
+    "gold": [
+     "kopo-4799-scholarship"
+    ],
+    "row_hit": {
+     "keyword": true,
+     "vector": true,
+     "hybrid": true
+    },
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship",
+      "event:공통:신입생 입학식 및 OT:2026-03-03:2026-03-03",
+      "event:2년제학위과정:신입생 수강신청 및 재학생 수강 정정 신청:2026-03-03:2026-03-08"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship",
+      "event:2년제학위과정:1차 성적열람 및 이의신청(1학년, 현장실습미실시학과):2026-12-21:2026-12-24",
+      "notice:787646"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship",
+      "event:2년제학위과정:1차 성적열람 및 이의신청(1학년, 현장실습미실시학과):2026-12-21:2026-12-24",
+      "event:공통:신입생 입학식 및 OT:2026-03-03:2026-03-03"
+     ]
+    }
+   },
+   {
+    "id": "L10",
+    "project": "lolypoly",
+    "gold": [
+     "notice:782263"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "notice:782263",
+      "notice:779471",
+      "notice:784236"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "notice:782263",
+      "notice:745480",
+      "notice:779471"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "notice:782263",
+      "notice:779471",
+      "notice:745480"
+     ]
+    }
+   },
+   {
+    "id": "L11",
+    "project": "lolypoly",
+    "gold": [
+     "notice:784317"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "notice:784317",
+      "event:2년제학위과정:1차 성적열람 및 이의신청(1학년, 현장실습미실시학과):2026-12-21:2026-12-24",
+      "event:2년제학위과정:2차 성적열람 및 이의신청(현장실습실시학과):2027-01-18:2027-01-22"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "notice:784317",
+      "event:2년제학위과정:1차 성적열람 및 이의신청(1학년, 현장실습미실시학과):2026-12-21:2026-12-24",
+      "event:2년제학위과정:현장실습1, 2:2025-12-15:2026-01-13"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "notice:784317",
+      "event:2년제학위과정:1차 성적열람 및 이의신청(1학년, 현장실습미실시학과):2026-12-21:2026-12-24",
+      "event:2년제학위과정:2차 성적열람 및 이의신청(현장실습실시학과):2027-01-18:2027-01-22"
+     ]
+    }
+   },
+   {
+    "id": "L14",
+    "project": "lolypoly",
+    "gold": [
+     "kopo-4799-scholarship"
+    ],
+    "row_hit": {
+     "keyword": true,
+     "vector": false,
+     "hybrid": true
+    },
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship"
+     ]
+    },
+    "vector": {
+     "hit": false,
+     "top3": [
+      "notice:782660",
+      "notice:784161",
+      "notice:787646"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "kopo-4799-scholarship",
+      "notice:782660",
+      "notice:784161"
+     ]
+    }
+   },
+   {
+    "id": "L16",
+    "project": "lolypoly",
+    "gold": [
+     "meal-hours"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "meal-hours"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "meal-hours"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "meal-hours"
+     ]
+    }
+   },
+   {
+    "id": "L19",
+    "project": "lolypoly",
+    "gold": [
+     "event:공통:기능사 4회 실기시험:2026-11-14:2026-12-02"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "event:공통:기능사 4회 실기시험 원서접수:2026-10-12:2026-10-15",
+      "event:공통:기능사 4회 실기시험:2026-11-14:2026-12-02",
+      "event:공통:기능사 2회 실기시험:2026-05-30:2026-06-14"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "event:공통:기능사 4회 실기시험:2026-11-14:2026-12-02",
+      "event:공통:기능사 4회 실기시험 원서접수:2026-10-12:2026-10-15",
+      "event:공통:기능사 4회 필기시험:2026-09-16:2026-09-21"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "event:공통:기능사 4회 실기시험 원서접수:2026-10-12:2026-10-15",
+      "event:공통:기능사 4회 실기시험:2026-11-14:2026-12-02",
+      "event:공통:기능사 2회 실기시험:2026-05-30:2026-06-14"
+     ]
+    }
+   },
+   {
+    "id": "M01",
+    "project": "maru",
+    "gold": [
+     "place:national-palace-museum"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "course:palace-history-course",
+      "place:gyeongbokgung-palace",
+      "place:national-palace-museum"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "course:palace-history-course",
+      "place:gyeongbokgung-palace",
+      "place:national-palace-museum"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "course:palace-history-course",
+      "place:gyeongbokgung-palace",
+      "place:national-palace-museum"
+     ]
+    },
+    "ari_baseline": {
+     "hit": true,
+     "top3": [
+      "course:palace-history-course",
+      "place:gyeongbokgung-palace",
+      "place:national-palace-museum"
+     ]
+    }
+   },
+   {
+    "id": "M02",
+    "project": "maru",
+    "gold": [
+     "place:gyeongbokgung-palace"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "place:gyeongbokgung-palace",
+      "course:palace-history-course",
+      "place:national-folk-museum"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "place:gyeongbokgung-palace",
+      "place:gyeonghuigung-palace",
+      "place:gwanghwamun-square"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "place:gyeongbokgung-palace",
+      "course:palace-history-course",
+      "place:gyeonghuigung-palace"
+     ]
+    },
+    "ari_baseline": {
+     "hit": false,
+     "top3": []
+    }
+   },
+   {
+    "id": "M03",
+    "project": "maru",
+    "gold": [
+     "course:rainy-day-indoor-heritage"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "course:rainy-day-indoor-heritage",
+      "place:seoul-museum-of-history",
+      "place:ddp-design-museum"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "course:rainy-day-indoor-heritage",
+      "place:war-memorial-korea",
+      "place:national-palace-museum"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "course:rainy-day-indoor-heritage",
+      "place:war-memorial-korea",
+      "place:ddp-design-museum"
+     ]
+    },
+    "ari_baseline": {
+     "hit": true,
+     "top3": [
+      "course:rainy-day-indoor-heritage",
+      "place:ddp-design-museum",
+      "course:palace-history-course"
+     ]
+    }
+   },
+   {
+    "id": "M04",
+    "project": "maru",
+    "gold": [
+     "course:traditional-market-food-course"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "course:traditional-market-food-course",
+      "place:gwangjang-market",
+      "place:tongin-market"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "course:traditional-market-food-course",
+      "course:rainy-day-indoor-heritage",
+      "course:night-traditional-culture-course"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "course:traditional-market-food-course",
+      "course:rainy-day-indoor-heritage",
+      "place:gwangjang-market"
+     ]
+    },
+    "ari_baseline": {
+     "hit": true,
+     "top3": [
+      "course:traditional-market-food-course",
+      "course:night-traditional-culture-course",
+      "course:insadong-craft-course"
+     ]
+    }
+   },
+   {
+    "id": "M05",
+    "project": "maru",
+    "gold": [
+     "place:national-palace-museum",
+     "place:gyeongbokgung-palace"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "course:palace-history-course",
+      "place:gyeongbokgung-palace",
+      "place:national-palace-museum"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "course:palace-history-course",
+      "place:gyeongbokgung-palace",
+      "place:national-palace-museum"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "course:palace-history-course",
+      "place:national-palace-museum",
+      "place:gyeongbokgung-palace"
+     ]
+    },
+    "ari_baseline": {
+     "hit": true,
+     "top3": [
+      "course:palace-history-course",
+      "course:bukchon-hanok-culture-course",
+      "place:gyeongbokgung-palace"
+     ]
+    }
+   },
+   {
+    "id": "M07",
+    "project": "maru",
+    "gold": [
+     "synthetic:royal-gbg-special-opening"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "place:gyeongbokgung-palace",
+      "synthetic:royal-gbg-special-opening"
+     ]
+    },
+    "vector": {
+     "hit": false,
+     "top3": [
+      "place:gyeongbokgung-palace",
+      "place:changdeokgung-palace",
+      "place:changgyeonggung-palace"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "place:gyeongbokgung-palace",
+      "place:changdeokgung-palace",
+      "synthetic:royal-gbg-special-opening"
+     ]
+    },
+    "ari_baseline": {
+     "hit": false,
+     "top3": [
+      "place:gyeongbokgung-palace",
+      "course:palace-history-course",
+      "course:insadong-craft-course"
+     ]
+    }
+   },
+   {
+    "id": "M09",
+    "project": "maru",
+    "gold": [
+     "synthetic:royal-gbg-special-opening"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "synthetic:royal-gbg-special-opening",
+      "place:gyeongbokgung-palace",
+      "course:palace-history-course"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "synthetic:royal-gbg-special-opening",
+      "place:gyeongbokgung-palace",
+      "place:national-folk-museum"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "synthetic:royal-gbg-special-opening",
+      "place:gyeongbokgung-palace",
+      "place:national-folk-museum"
+     ]
+    },
+    "ari_baseline": {
+     "hit": false,
+     "top3": [
+      "course:palace-history-course",
+      "place:gyeongbokgung-palace",
+      "place:deoksugung-palace"
+     ]
+    }
+   },
+   {
+    "id": "M12",
+    "project": "maru",
+    "gold": [
+     "synthetic:maru-tour-meal-time"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "synthetic:maru-tour-meal-time",
+      "place:changdeokgung-palace",
+      "place:jongmyo-shrine"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "synthetic:maru-tour-meal-time",
+      "place:korea-house",
+      "course:traditional-market-food-course"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "synthetic:maru-tour-meal-time",
+      "place:korea-house",
+      "place:ikseon-dong-hanok-street"
+     ]
+    },
+    "ari_baseline": {
+     "hit": false,
+     "top3": []
+    }
+   },
+   {
+    "id": "M13",
+    "project": "maru",
+    "gold": [
+     "course:bukchon-hanok-culture-course"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "place:bukchon-hanok-village",
+      "course:bukchon-hanok-culture-course"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "course:bukchon-hanok-culture-course",
+      "place:bukchon-hanok-village"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "course:bukchon-hanok-culture-course",
+      "place:bukchon-hanok-village"
+     ]
+    },
+    "ari_baseline": {
+     "hit": true,
+     "top3": [
+      "course:bukchon-hanok-culture-course",
+      "course:palace-history-course",
+      "place:deoksugung-palace"
+     ]
+    }
+   },
+   {
+    "id": "M14",
+    "project": "maru",
+    "gold": [
+     "place:jongmyo-shrine"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "place:jongmyo-shrine"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "place:jongmyo-shrine",
+      "place:national-palace-museum",
+      "place:national-folk-museum"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "place:jongmyo-shrine",
+      "place:national-palace-museum",
+      "place:national-folk-museum"
+     ]
+    },
+    "ari_baseline": {
+     "hit": true,
+     "top3": [
+      "place:jongmyo-shrine",
+      "course:palace-history-course",
+      "course:insadong-craft-course"
+     ]
+    }
+   },
+   {
+    "id": "M16",
+    "project": "maru",
+    "gold": [
+     "place:insadong",
+     "course:insadong-craft-course"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "course:insadong-craft-course",
+      "place:insadong"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "course:insadong-craft-course",
+      "place:insadong"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "course:insadong-craft-course",
+      "place:insadong"
+     ]
+    },
+    "ari_baseline": {
+     "hit": false,
+     "top3": [
+      "place:deoksugung-palace"
+     ]
+    }
+   },
+   {
+    "id": "C01",
+    "project": "campus-library",
+    "gold": [
+     "guide:loan"
+    ],
+    "keyword": {
+     "hit": true,
+     "top3": [
+      "guide:loan",
+      "guide:return"
+     ]
+    },
+    "vector": {
+     "hit": true,
+     "top3": [
+      "guide:loan",
+      "guide:return"
+     ]
+    },
+    "hybrid": {
+     "hit": true,
+     "top3": [
+      "guide:loan",
+      "guide:return"
+     ]
+    }
+   }
+  ],
+  "table_row_hit_at_3": {
+   "keyword": 5,
+   "vector": 4,
+   "hybrid": 5,
+   "denominator": 5,
+   "definition": "상위 3개 조각 중 기대 행(locator)이 있는지. 장학표 행 섞임 점검용"
+  },
+  "maru_subset": {
+   "keyword": 11,
+   "vector": 10,
+   "hybrid": 11,
+   "ari_baseline": 6,
+   "denominator": 11
+  },
+  "maru_ari_comparable_subset": {
+   "keyword": 8,
+   "vector": 8,
+   "hybrid": 8,
+   "ari_baseline": 6,
+   "denominator": 8,
+   "note": "Ari 기준선 코퍼스(장소·코스)에 기대 출처가 있는 질문만"
+  }
+ },
+ "full": {
+  "summary": {
+   "route_accuracy": {
+    "ok": 37,
+    "denominator": 37,
+    "rate": 1.0
+   },
+   "status_accuracy": {
+    "ok": 31,
+    "denominator": 37,
+    "rate": 0.838
+   },
+   "structured_accuracy": {
+    "ok": 7,
+    "denominator": 7,
+    "rate": 1.0
+   },
+   "abstention_correct": {
+    "ok": 9,
+    "denominator": 9,
+    "rate": 1.0
+   },
+   "false_abstentions": {
+    "count": 5,
+    "denominator": 26
+   },
+   "key_facts_in_answer_or_quotes(auto proxy)": {
+    "ok": 19,
+    "denominator": 22,
+    "rate": 0.864
+   },
+   "gold_source_cited_when_answered": {
+    "ok": 22,
+    "denominator": 22,
+    "rate": 1.0
+   },
+   "cross_project_leaks": 0,
+   "invalid_citation_ids_returned": 0,
+   "unknown_ids_produced_by_model(dropped)": 0,
+   "quote_misses(dropped)": 6,
+   "value_mismatches(dropped)": 0,
+   "detail_answers_from_title_only_or_expired": 0,
+   "model_calls_total": 23,
+   "latency_ms": {
+    "mean": 20120.9,
+    "p50": 18877.7,
+    "p95": 47660.2,
+    "max": 73614.1
+   },
+   "failures": [
+    {
+     "id": "L07",
+     "expected": [
+      "answered"
+     ],
+     "got": "answered",
+     "route": "document",
+     "key_facts_ok": false,
+     "answer": "직전학기 성적우수자는 교내 성적우수 장학금을 받을 수 있습니다. [1]"
+    },
+    {
+     "id": "L09",
+     "expected": [
+      "answered"
+     ],
+     "got": "answered",
+     "route": "document",
+     "key_facts_ok": false,
+     "answer": "성적우수장학금은 신입생도 1학기에 받을 수 있어? [1]"
+    },
+    {
+     "id": "L17",
+     "expected": [
+      "answered"
+     ],
+     "got": "answered",
+     "route": "composite",
+     "key_facts_ok": false,
+     "answer": "2026-11-10(화) 중식 메뉴: 상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자 [1]\n성적우수 장학금은 학과수석 입학자에게 교육비 전액을 면제해준다. [2]"
+    },
+    {
+     "id": "L19",
+     "expected": [
+      "answered"
+     ],
+     "got": "insufficient_evidence",
+     "route": "document",
+     "key_facts_ok": true,
+     "answer": "확인된 자료에서 찾지 못했어. [1][2][3]"
+    },
+    {
+     "id": "M01",
+     "expected": [
+      "answered"
+     ],
+     "got": "insufficient_evidence",
+     "route": "document",
+     "key_facts_ok": false,
+     "answer": "I couldn't find this in the verified sources. [1][2][3]"
+    },
+    {
+     "id": "M04",
+     "expected": [
+      "answered"
+     ],
+     "got": "insufficient_evidence",
+     "route": "document",
+     "key_facts_ok": true,
+     "answer": "I couldn't find this in the verified sources. [1][2][3]"
+    },
+    {
+     "id": "M07",
+     "expected": [
+      "answered"
+     ],
+     "got": "insufficient_evidence",
+     "route": "document",
+     "key_facts_ok": true,
+     "answer": "I couldn't find this in the verified sources. [1][2][3]"
+    },
+    {
+     "id": "M12",
+     "expected": [
+      "answered"
+     ],
+     "got": "insufficient_evidence",
+     "route": "document",
+     "key_facts_ok": true,
+     "answer": "확인된 자료에서 찾지 못했어. [1][2][3]"
+    },
+    {
+     "id": "M17",
+     "expected": [
+      "partial"
+     ],
+     "got": "insufficient_evidence",
+     "route": "composite",
+     "key_facts_ok": true,
+     "answer": "[일부 확인 불가] 확인된 자료에서 찾지 못했어. [1][2][3]\n[일부 확인 불가] 확인된 자료에서 찾지 못했어. 가격·운영시간·개방 여부처럼 시점이 중요한 내용은 지금 시점에 맞는 근거가 없어서 확정할 수 없어. [4][5]"
+    }
+   ]
+  },
+  "results": [
+   {
+    "id": "L01",
+    "project": "lolypoly",
+    "tags": [
+     "structured",
+     "relative_date"
+    ],
+    "expected_route": "structured",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 1.4,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "2026-11-10(화) 중식 메뉴: 상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자 [1]",
+    "citations": [
+     {
+      "source_id": "meal:2026-11-10:lunch",
+      "quote": "상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자",
+      "note": null,
+      "locator": "식단 > 2026-11-10(화) 중식"
+     }
+    ]
+   },
+   {
+    "id": "L02",
+    "project": "lolypoly",
+    "tags": [
+     "structured",
+     "relative_date",
+     "date_boundary"
+    ],
+    "expected_route": "structured",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 0.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "2026-11-11(수) 석식 메뉴: 잡곡밥, 바지락살맑은국, 통가슴살치킨까스, 깻잎전/초간장, 콩나물볶음, 김치 [1]",
+    "citations": [
+     {
+      "source_id": "meal:2026-11-11:dinner",
+      "quote": "잡곡밥, 바지락살맑은국, 통가슴살치킨까스, 깻잎전/초간장, 콩나물볶음, 김치",
+      "note": null,
+      "locator": "식단 > 2026-11-11(수) 석식"
+     }
+    ]
+   },
+   {
+    "id": "L03",
+    "project": "lolypoly",
+    "tags": [
+     "structured",
+     "empty_meal"
+    ],
+    "expected_route": "structured",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 0.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "2026-11-08(일) 중식: 공식 식단표에 메뉴가 비어 있어(레코드는 수집됨). [1]",
+    "citations": [
+     {
+      "source_id": "meal:2026-11-08:lunch",
+      "quote": "(공식 식단표에 메뉴 없음)",
+      "note": null,
+      "locator": "식단 > 2026-11-08(일) 중식"
+     }
+    ]
+   },
+   {
+    "id": "L04",
+    "project": "lolypoly",
+    "tags": [
+     "structured",
+     "missing_meal",
+     "date_boundary",
+     "no_evidence"
+    ],
+    "expected_route": "structured",
+    "route": "structured",
+    "expected_status": [
+     "insufficient_evidence"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "none",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 0.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "2026-11-17(화) 중식 식단 레코드가 없어. 아직 수집되지 않았거나 공식 식단표에 없는 날짜야. 다른 날짜 메뉴로 대신 답하지 않을게. [1]",
+    "citations": [
+     {
+      "source_id": "lolypoly:meals-page",
+      "quote": "",
+      "note": "해당 날짜 레코드 없음",
+      "locator": "식단 페이지"
+     }
+    ]
+   },
+   {
+    "id": "L05",
+    "project": "lolypoly",
+    "tags": [
+     "clarify"
+    ],
+    "expected_route": "clarify",
+    "route": "clarify",
+    "expected_status": [
+     "clarification_needed"
+    ],
+    "status": "clarification_needed",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "none",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 0.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "조식·중식·석식 중 어느 끼니를 알려줄까?",
+    "citations": []
+   },
+   {
+    "id": "L06",
+    "project": "lolypoly",
+    "tags": [
+     "document",
+     "table_row",
+     "public_original"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 35132.5,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "성적우수 장학금은 학과수석 입학자에게 1년간 교육비 전액을 제공합니다. [1]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 학과수석 입학자 1명 | 지급액 및 기간: 1년간 교육비 전액면제 | 비고: 직전학기 성적 3.0이상",
+      "note": null,
+      "locator": "장학제도 표 > 행 2 (교내 / 성적우수 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "L07",
+    "project": "lolypoly",
+    "tags": [
+     "document",
+     "table_row",
+     "public_original"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": false,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 30419.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "직전학기 성적우수자는 교내 성적우수 장학금을 받을 수 있습니다. [1]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 직전학기 학과별 성적우수자 학급당 1명",
+      "note": null,
+      "locator": "장학제도 표 > 행 3 (교내 / 성적우수 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "L08",
+    "project": "lolypoly",
+    "tags": [
+     "document",
+     "spacing",
+     "table_row"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 39123.9,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "성적우수 장학금은 학과 수석 입학자에게 교육비 전액을 면제합니다. [1]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 학과수석 입학자 1명 | 지급액 및 기간: 1년간 교육비 전액면제",
+      "note": null,
+      "locator": "장학제도 표 > 행 2 (교내 / 성적우수 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "L09",
+    "project": "lolypoly",
+    "tags": [
+     "document",
+     "spacing",
+     "josa",
+     "table_row"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": false,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 53102.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "성적우수장학금은 신입생도 1학기에 받을 수 있어? [1]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 직전학기 학과별 성적우수자 학급당 1명 | 지급액 및 기간: 1개학기 교육비 전액면제",
+      "note": null,
+      "locator": "장학제도 표 > 행 3 (교내 / 성적우수 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "L10",
+    "project": "lolypoly",
+    "tags": [
+     "title_only",
+     "no_evidence"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "insufficient_evidence"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "none",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 15.2,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "확인된 자료에서 찾지 못했어. 이 공지는 제목만 수집돼 있어서 세부 내용은 확인할 수 없어. 원문 링크에서 확인해줘. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "notice:782263",
+      "quote": "[학사] [학위] 2026년도 국가기술자격검정 수수료 지원안내(신청마감: 11/13)",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:779471",
+      "quote": "[공지] [한국폴리텍Ⅲ대학 춘천캠퍼스] 국가기술자격시험 유치·운영 현황",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:745480",
+      "quote": "[학사] [직업교육과정] 2026학년도 직업교육과정 추가 안내[고용센터 제출 서류(국민취업지원제도 참가자, 실업급여 수급자) / 계좌입력방법]]",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     }
+    ]
+   },
+   {
+    "id": "L11",
+    "project": "lolypoly",
+    "tags": [
+     "title_only",
+     "no_evidence"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "insufficient_evidence"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "none",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 12.0,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "확인된 자료에서 찾지 못했어. 이 공지는 제목만 수집돼 있어서 세부 내용은 확인할 수 없어. 원문 링크에서 확인해줘. [1][2]",
+    "citations": [
+     {
+      "source_id": "notice:784317",
+      "quote": "[학사] [학위] 2026학년도 현장실습 실시 안내(수강취소: ~11/27)",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:745480",
+      "quote": "[학사] [직업교육과정] 2026학년도 직업교육과정 추가 안내[고용센터 제출 서류(국민취업지원제도 참가자, 실업급여 수급자) / 계좌입력방법]]",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     }
+    ]
+   },
+   {
+    "id": "L12",
+    "project": "lolypoly",
+    "tags": [
+     "structured",
+     "title_only_list"
+    ],
+    "expected_route": "structured",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 1.3,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "- [학사] [학위] 2026학년도 2학기 중간평가 알림 (2026-09-14) [1]\n- [학사] [학위] 2026학년도 현장실습 실시 안내(수강취소: ~11/27) (2026-09-08) [2]\n- [학사] [학위] 미등록휴학기간 알림 (2026-08-20) [3]\n- [학사] [학위] (★중요) 2026학년도 학위과정 2학기 학사제도 안내 (2026-08-14) [4]\n- [학사] [학위] 2026년도 국가기술자격검정 수수료 지원안내(신청마감: 11/13) (2026-08-14) [5]",
+    "citations": [
+     {
+      "source_id": "notice:784821",
+      "quote": "[학사] [학위] 2026학년도 2학기 중간평가 알림",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:784317",
+      "quote": "[학사] [학위] 2026학년도 현장실습 실시 안내(수강취소: ~11/27)",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:782660",
+      "quote": "[학사] [학위] 미등록휴학기간 알림",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:782261",
+      "quote": "[학사] [학위] (★중요) 2026학년도 학위과정 2학기 학사제도 안내",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:782263",
+      "quote": "[학사] [학위] 2026년도 국가기술자격검정 수수료 지원안내(신청마감: 11/13)",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     }
+    ]
+   },
+   {
+    "id": "L13",
+    "project": "lolypoly",
+    "tags": [
+     "structured",
+     "relative_date"
+    ],
+    "expected_route": "structured",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 1.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "- 기능사 4회 실기시험 (공통): 2026-11-14~2026-12-02 [1]",
+    "citations": [
+     {
+      "source_id": "event:공통:기능사 4회 실기시험:2026-11-14:2026-12-02",
+      "quote": "학사일정 기능사 4회 실기시험 | 과정: 공통 | 기간: 2026-11-14 ~ 2026-12-02",
+      "note": null,
+      "locator": "학사일정 > 기능사 4회 실기시험"
+     }
+    ]
+   },
+   {
+    "id": "L14",
+    "project": "lolypoly",
+    "tags": [
+     "document",
+     "english",
+     "table_row"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 41024.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "The scholarship that waives tuition for one full year is the 성적우수 장학금 (Academic Excellence Scholarship). [1]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 학과수석 입학자 1명 | 지급액 및 기간: 1년간 교육비 전액면제 | 비고: 직전학기 성적 3.0이상",
+      "note": null,
+      "locator": "장학제도 표 > 행 2 (교내 / 성적우수 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "L15",
+    "project": "lolypoly",
+    "tags": [
+     "no_evidence"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "insufficient_evidence"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "none",
+    "key_facts_ok": null,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 23038.2,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "확인된 자료에서 찾지 못했어. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "event:P-TECH:성적열람 및 이의신청:2026-01-15:2026-01-16",
+      "quote": "학사일정 성적열람 및 이의신청 | 과정: P-TECH | 기간: 2026-01-15 ~ 2026-01-16",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "학사일정 > 성적열람 및 이의신청"
+     },
+     {
+      "source_id": "event:2년제학위과정:학점인정 신청:2026-03-03:2026-03-13",
+      "quote": "학사일정 학점인정 신청 | 과정: 2년제학위과정 | 기간: 2026-03-03 ~ 2026-03-13",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "학사일정 > 학점인정 신청"
+     },
+     {
+      "source_id": "event:P-TECH:성적열람 및 이의신청:2026-08-01:2026-08-02",
+      "quote": "학사일정 성적열람 및 이의신청 | 과정: P-TECH | 기간: 2026-08-01 ~ 2026-08-02",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "학사일정 > 성적열람 및 이의신청"
+     }
+    ]
+   },
+   {
+    "id": "L16",
+    "project": "lolypoly",
+    "tags": [
+     "document",
+     "name_overlap",
+     "time_sensitive"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 18877.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "학생식당의 점심시간은 11:50부터입니다. [1]",
+    "citations": [
+     {
+      "source_id": "meal-hours",
+      "quote": "[학생식당 식사시간표] 구분: 주중 | 아침: 08:00 - 08:50 | 점심: 11:50 - 13:20 | 저녁: 17:30 - 18:20",
+      "note": null,
+      "locator": "학생식당 식사시간표 > 행 1 (주중 / 08:00 - 08:50)"
+     }
+    ]
+   },
+   {
+    "id": "L17",
+    "project": "lolypoly",
+    "tags": [
+     "composite"
+    ],
+    "expected_route": "composite",
+    "route": "composite",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": false,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 46525.6,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "2026-11-10(화) 중식 메뉴: 상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자 [1]\n성적우수 장학금은 학과수석 입학자에게 교육비 전액을 면제해준다. [2]",
+    "citations": [
+     {
+      "source_id": "meal:2026-11-10:lunch",
+      "quote": "상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자",
+      "note": null,
+      "locator": "식단 > 2026-11-10(화) 중식"
+     },
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 학과수석 입학자 1명",
+      "note": null,
+      "locator": "장학제도 표 > 행 2 (교내 / 성적우수 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "L18",
+    "project": "lolypoly",
+    "tags": [
+     "composite",
+     "partial",
+     "date_boundary"
+    ],
+    "expected_route": "composite",
+    "route": "composite",
+    "expected_status": [
+     "partial"
+    ],
+    "status": "partial",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "partial",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 18.2,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "2026-11-14(토) 중식 메뉴: 간편식(컵밥,빵,음료) [1]\n[일부 확인 불가] 확인된 자료에서 찾지 못했어. 이 공지는 제목만 수집돼 있어서 세부 내용은 확인할 수 없어. 원문 링크에서 확인해줘. [2][3][4]",
+    "citations": [
+     {
+      "source_id": "meal:2026-11-14:lunch",
+      "quote": "간편식(컵밥,빵,음료)",
+      "note": null,
+      "locator": "식단 > 2026-11-14(토) 중식"
+     },
+     {
+      "source_id": "notice:783302",
+      "quote": "[입시] 2027학년도 대입지원용 학교생활기록부 신청 방법 안내",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:782660",
+      "quote": "[학사] [학위] 미등록휴학기간 알림",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:782263",
+      "quote": "[학사] [학위] 2026년도 국가기술자격검정 수수료 지원안내(신청마감: 11/13)",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     }
+    ]
+   },
+   {
+    "id": "L19",
+    "project": "lolypoly",
+    "tags": [
+     "document",
+     "event"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": false,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 15672.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "확인된 자료에서 찾지 못했어. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "event:공통:기능사 4회 실기시험 원서접수:2026-10-12:2026-10-15",
+      "quote": "학사일정 기능사 4회 실기시험 원서접수 | 과정: 공통 | 기간: 2026-10-12 ~ 2026-10-15",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "학사일정 > 기능사 4회 실기시험 원서접수"
+     },
+     {
+      "source_id": "event:공통:기능사 4회 실기시험:2026-11-14:2026-12-02",
+      "quote": "학사일정 기능사 4회 실기시험 | 과정: 공통 | 기간: 2026-11-14 ~ 2026-12-02",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "학사일정 > 기능사 4회 실기시험"
+     },
+     {
+      "source_id": "event:공통:기능사 2회 실기시험:2026-05-30:2026-06-14",
+      "quote": "학사일정 기능사 2회 실기시험 | 과정: 공통 | 기간: 2026-05-30 ~ 2026-06-14",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "학사일정 > 기능사 2회 실기시험"
+     }
+    ]
+   },
+   {
+    "id": "M01",
+    "project": "maru",
+    "tags": [
+     "document",
+     "english"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": false,
+    "answerable": "full",
+    "key_facts_ok": false,
+    "gold_cited": false,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 37692.9,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 1,
+    "value_mismatches": 0,
+    "dropped": [
+     {
+      "reason": "quote_not_in_source",
+      "eid": "E1"
+     }
+    ],
+    "answer": "I couldn't find this in the verified sources. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "course:palace-history-course",
+      "quote": "키워드: Joseon Dynasty — 조선 왕실문화와 국가 질서를 이해하는 핵심 키워드입니다.; Royal Ritual — 궁궐 공간이 단순한 건물이 아니라 의례와 권위의 무대였음을 설명합니다.; Palace Ar",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "궁궐 역사 산책 코스 > 문단 5"
+     },
+     {
+      "source_id": "place:gyeongbokgung-palace",
+      "quote": "해설 키워드: Joseon Dynasty, Royal Palace, Royal Ritual. 해설 역할: 조선 왕실문화와 궁궐 건축의 의미를 외국인에게 쉽게 설명",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "경복궁 (Gyeongbokgung Palace) > 문단 7"
+     },
+     {
+      "source_id": "course:palace-history-course",
+      "quote": "궁궐 역사 산책 코스 (Royal Palace History Walk): 조선 왕실 문화와 서울의 역사적 중심지를 자연스럽게 경험할 수 있는 첫 방문자용 대표 코스입니다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "궁궐 역사 산책 코스 > 문단 1"
+     }
+    ]
+   },
+   {
+    "id": "M02",
+    "project": "maru",
+    "tags": [
+     "document",
+     "josa"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 47660.2,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 2,
+    "value_mismatches": 0,
+    "dropped": [
+     {
+      "reason": "quote_not_in_source",
+      "eid": "E3"
+     },
+     {
+      "reason": "quote_not_in_source",
+      "eid": "E3"
+     }
+    ],
+    "answer": "경복궁은 조선 왕조의 대표 궁궐입니다. [1]",
+    "citations": [
+     {
+      "source_id": "place:gyeongbokgung-palace",
+      "quote": "조선 왕조의 대표 궁궐로 왕실 의례와 궁궐 건축을 한눈에 이해하기 좋은 장소입니다.",
+      "note": null,
+      "locator": "경복궁 (Gyeongbokgung Palace) > 문단 3"
+     }
+    ]
+   },
+   {
+    "id": "M03",
+    "project": "maru",
+    "tags": [
+     "document"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 73614.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 2,
+    "value_mismatches": 0,
+    "dropped": [
+     {
+      "reason": "quote_not_in_source",
+      "eid": "E1"
+     },
+     {
+      "reason": "quote_not_in_source",
+      "eid": "E4"
+     }
+    ],
+    "answer": "비 오는 날 실내 전통문화 코스: 비가 오거나 더운 날에도 실내 전시와 짧은 동선 중심으로 전통문화를 이해할 수 있는 대체 코스입니다. [1]",
+    "citations": [
+     {
+      "source_id": "course:rainy-day-indoor-heritage",
+      "quote": "비 오는 날 실내 전통문화 코스 (Rainy-Day Indoor Traditional Culture Course): 비가 오거나 더운 날에도 실내 전시와 짧은 동선 중심으로 전통문화를 이해할 수 있는 대체 코스입니다.",
+      "note": null,
+      "locator": "비 오는 날 실내 전통문화 코스 > 문단 1"
+     }
+    ]
+   },
+   {
+    "id": "M04",
+    "project": "maru",
+    "tags": [
+     "document",
+     "english"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": false,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 32493.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 1,
+    "value_mismatches": 0,
+    "dropped": [
+     {
+      "reason": "quote_not_in_source",
+      "eid": "E2"
+     }
+    ],
+    "answer": "I couldn't find this in the verified sources. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "course:traditional-market-food-course",
+      "quote": "키워드: Market Food — 시장 음식은 지역의 생활 리듬과 사람들의 교류 방식을 보여줍니다.; Local Life — 관광 명소 밖에서 오늘의 서울 사람들이 전통을 소비하고 이어가는 방식입니다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "전통시장 미식 코스 > 문단 5"
+     },
+     {
+      "source_id": "course:traditional-market-food-course",
+      "quote": "전통시장 미식 코스 (Traditional Market Food Course): 전통시장의 먹거리와 생활문화를 연결해 서울 사람들의 일상 속 전통을 체험하는 코스입니다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "전통시장 미식 코스 > 문단 1"
+     },
+     {
+      "source_id": "course:traditional-market-food-course",
+      "quote": "소요 시간: 3 hours, 걷기: 보통, 비용 수준: 저비용",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "전통시장 미식 코스 > 문단 6"
+     }
+    ]
+   },
+   {
+    "id": "M05",
+    "project": "maru",
+    "tags": [
+     "document",
+     "context_ref"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 31167.9,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "경복궁에서 궁궐 의식을 볼 수 있었던 곳은 국립고궁박물관으로 보인다. [1]",
+    "citations": [
+     {
+      "source_id": "place:gyeongbokgung-palace",
+      "quote": "조선 왕조의 대표 궁궐로 왕실 의례와 궁궐 건축을 한눈에 이해하기 좋은 장소입니다.",
+      "note": null,
+      "locator": "경복궁 (Gyeongbokgung Palace) > 문단 3"
+     }
+    ]
+   },
+   {
+    "id": "M06",
+    "project": "maru",
+    "tags": [
+     "clarify",
+     "context_ref"
+    ],
+    "expected_route": "clarify",
+    "route": "clarify",
+    "expected_status": [
+     "clarification_needed"
+    ],
+    "status": "clarification_needed",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "none",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 0.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "어느 코스를 말하는지 알려줄래?",
+    "citations": []
+   },
+   {
+    "id": "M07",
+    "project": "maru",
+    "tags": [
+     "document",
+     "english",
+     "date_boundary",
+     "time_sensitive",
+     "synthetic"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": false,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 29527.5,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [
+     {
+      "reason": "contradicts_valid_period"
+     }
+    ],
+    "answer": "I couldn't find this in the verified sources. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "synthetic:royal-gbg-special-opening",
+      "quote": "경복궁 한시 특별 개방 기간은 2026-09-01부터 2026-10-31까지다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "[합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) > 문단 1"
+     },
+     {
+      "source_id": "synthetic:royal-gbg-special-opening",
+      "quote": "특별 개방 기간에는 평소 공개하지 않는 일부 구역을 정해진 시간에 관람할 수 있다(합성 예시 문장).",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "[합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) > 문단 2"
+     },
+     {
+      "source_id": "synthetic:royal-gbg-special-opening",
+      "quote": "기간이 끝난 뒤의 개방 여부는 이 공지로 알 수 없다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "[합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) > 문단 3"
+     }
+    ]
+   },
+   {
+    "id": "M08",
+    "project": "maru",
+    "tags": [
+     "english",
+     "date_boundary",
+     "expired",
+     "time_sensitive",
+     "synthetic",
+     "no_evidence"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "insufficient_evidence"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "none",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 23.0,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "I couldn't find this in the verified sources. This depends on the current date (prices, hours, opening status), and no source valid for the current date was found, so I can't confirm it. [1][2][3][4]",
+    "citations": [
+     {
+      "source_id": "place:gyeongbokgung-palace",
+      "quote": "실내/실외: 실외, 걷기 난이도: 보통",
+      "note": "답변 근거 아님(시점 미확인)",
+      "locator": "경복궁 (Gyeongbokgung Palace) > 문단 6"
+     },
+     {
+      "source_id": "place:gyeongbokgung-palace",
+      "quote": "경복궁 (Gyeongbokgung Palace) — 궁궐 / 종로구",
+      "note": "답변 근거 아님(시점 미확인)",
+      "locator": "경복궁 (Gyeongbokgung Palace) > 문단 1"
+     },
+     {
+      "source_id": "synthetic:royal-gbg-special-opening",
+      "quote": "경복궁 한시 특별 개방 기간은 2026-09-01부터 2026-10-31까지다.",
+      "note": "기간 종료(2026-09-01~2026-10-31), 답변 근거 아님",
+      "locator": "[합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) > 문단 1"
+     },
+     {
+      "source_id": "synthetic:royal-gbg-special-opening",
+      "quote": "특별 개방 기간에는 평소 공개하지 않는 일부 구역을 정해진 시간에 관람할 수 있다(합성 예시 문장).",
+      "note": "기간 종료(2026-09-01~2026-10-31), 답변 근거 아님",
+      "locator": "[합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) > 문단 2"
+     }
+    ]
+   },
+   {
+    "id": "M09",
+    "project": "maru",
+    "tags": [
+     "document",
+     "date_boundary",
+     "time_sensitive",
+     "synthetic"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 30473.6,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "경복궁 한시 특별 개방 기간은 2026-10-31까지다. [1]\n(서버 확인) 근거 적용 기간 2026-09-01~2026-10-31, 기준일 2026-10-31은 이 기간 안이야. [2]",
+    "citations": [
+     {
+      "source_id": "synthetic:royal-gbg-special-opening",
+      "quote": "경복궁 한시 특별 개방 기간은 2026-09-01부터 2026-10-31까지다.",
+      "note": null,
+      "locator": "[합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) > 문단 1"
+     },
+     {
+      "source_id": "synthetic:royal-gbg-special-opening",
+      "quote": "2026-09-01~2026-10-31",
+      "note": "적용 기간(메타데이터)",
+      "locator": "[합성 테스트 데이터] 경복궁 한시 특별 개방 안내 (원문 미확인) > 문단 1"
+     }
+    ]
+   },
+   {
+    "id": "M10",
+    "project": "maru",
+    "tags": [
+     "time_sensitive",
+     "no_evidence"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "insufficient_evidence"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "none",
+    "key_facts_ok": null,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 24.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "확인된 자료에서 찾지 못했어. 가격·운영시간·개방 여부처럼 시점이 중요한 내용은 지금 시점에 맞는 근거가 없어서 확정할 수 없어. [1][2]",
+    "citations": [
+     {
+      "source_id": "place:gyeongbokgung-palace",
+      "quote": "경복궁 (Gyeongbokgung Palace) — 궁궐 / 종로구",
+      "note": "답변 근거 아님(시점 미확인)",
+      "locator": "경복궁 (Gyeongbokgung Palace) > 문단 1"
+     },
+     {
+      "source_id": "place:gyeongbokgung-palace",
+      "quote": "방문 팁: 광화문, 국립고궁박물관, 국립민속박물관과 함께 묶으면 첫 방문자 코스로 좋습니다.",
+      "note": "답변 근거 아님(시점 미확인)",
+      "locator": "경복궁 (Gyeongbokgung Palace) > 문단 5"
+     }
+    ]
+   },
+   {
+    "id": "M11",
+    "project": "maru",
+    "tags": [
+     "structured",
+     "order_preserved"
+    ],
+    "expected_route": "structured",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 1.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "1. 야간 전통문화 코스 (Night Traditional Culture Course) [1]\n2. 궁궐 역사 산책 코스 (Royal Palace History Walk) [2]\n3. 비 오는 날 실내 전통문화 코스 (Rainy-Day Indoor Traditional Culture Course) [3]",
+    "citations": [
+     {
+      "source_id": "course:night-traditional-culture-course",
+      "quote": "야간 전통문화 코스 (Night Traditional Culture Course)",
+      "note": "순위: MARU 앱 계산값(전달받은 순서)",
+      "locator": "코스 목록"
+     },
+     {
+      "source_id": "course:palace-history-course",
+      "quote": "궁궐 역사 산책 코스 (Royal Palace History Walk)",
+      "note": "순위: MARU 앱 계산값(전달받은 순서)",
+      "locator": "코스 목록"
+     },
+     {
+      "source_id": "course:rainy-day-indoor-heritage",
+      "quote": "비 오는 날 실내 전통문화 코스 (Rainy-Day Indoor Traditional Culture Course)",
+      "note": "순위: MARU 앱 계산값(전달받은 순서)",
+      "locator": "코스 목록"
+     }
+    ]
+   },
+   {
+    "id": "M12",
+    "project": "maru",
+    "tags": [
+     "document",
+     "name_overlap",
+     "synthetic"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": false,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 14448.4,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "확인된 자료에서 찾지 못했어. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "synthetic:maru-tour-meal-time",
+      "quote": "MARU 가이드 투어 예시 일정에서 점심 휴식 식사시간은 12:00~13:00으로 둔다. 이 문장은 프로젝트 간 이름 겹침 시험용 합성 테스트 데이터다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "[합성 테스트 데이터] 식사시간 안내 — MARU 투어 점심 휴식 > 문단 1"
+     },
+     {
+      "source_id": "place:korea-house",
+      "quote": "방문 팁: 공연이나 식사 프로그램은 사전 예약 여부를 확인하세요.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "한국의집 (Korea House) > 문단 5"
+     },
+     {
+      "source_id": "place:ikseon-dong-hanok-street",
+      "quote": "방문 팁: 혼잡 시간에는 골목이 좁으니 오전이나 이른 저녁 방문이 편합니다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "익선동 한옥거리 (Ikseon-dong Hanok Street) > 문단 5"
+     }
+    ]
+   },
+   {
+    "id": "M13",
+    "project": "maru",
+    "tags": [
+     "document",
+     "josa"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 23363.9,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "북촌 한옥마을과 함께 둘러볼 궁궐 코스가 있어요. [1]",
+    "citations": [
+     {
+      "source_id": "course:bukchon-hanok-culture-course",
+      "quote": "코스 순서: 북촌한옥마을 → 창덕궁 → 운현궁",
+      "note": null,
+      "locator": "북촌 한옥 문화 코스 > 문단 2"
+     }
+    ]
+   },
+   {
+    "id": "M14",
+    "project": "maru",
+    "tags": [
+     "document",
+     "english",
+     "alias"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 43023.3,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "조선 왕실의 제례와 조상 숭배 문화를 이해할 수 있는 유교 유산입니다. [1]\n종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구 [2]\n주소: 서울특별시 종로구 종로 157 [3]",
+    "citations": [
+     {
+      "source_id": "place:jongmyo-shrine",
+      "quote": "조선 왕실의 제례와 조상 숭배 문화를 이해할 수 있는 유교 유산입니다.",
+      "note": null,
+      "locator": "종묘 (Jongmyo Shrine) > 문단 3"
+     },
+     {
+      "source_id": "place:jongmyo-shrine",
+      "quote": "종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구",
+      "note": null,
+      "locator": "종묘 (Jongmyo Shrine) > 문단 1"
+     },
+     {
+      "source_id": "place:jongmyo-shrine",
+      "quote": "주소: 서울특별시 종로구 종로 157",
+      "note": null,
+      "locator": "종묘 (Jongmyo Shrine) > 문단 2"
+     }
+    ]
+   },
+   {
+    "id": "M15",
+    "project": "maru",
+    "tags": [
+     "no_evidence"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "insufficient_evidence"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "none",
+    "key_facts_ok": null,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 22932.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "확인된 자료에서 찾지 못했어. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "place:national-jeongdong-theater",
+      "quote": "방문 팁: 공연 일정과 자막·언어 지원 여부를 사전에 확인하세요.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "국립정동극장 (National Jeongdong Theater) > 문단 5"
+     },
+     {
+      "source_id": "synthetic:maru-tour-meal-time",
+      "quote": "MARU 가이드 투어 예시 일정에서 점심 휴식 식사시간은 12:00~13:00으로 둔다. 이 문장은 프로젝트 간 이름 겹침 시험용 합성 테스트 데이터다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "[합성 테스트 데이터] 식사시간 안내 — MARU 투어 점심 휴식 > 문단 1"
+     },
+     {
+      "source_id": "place:namsangol-hanok-village",
+      "quote": "방문 팁: 명동이나 충무로 일정과 연결하면 이동 부담이 적습니다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "남산골한옥마을 (Namsangol Hanok Village) > 문단 5"
+     }
+    ]
+   },
+   {
+    "id": "M16",
+    "project": "maru",
+    "tags": [
+     "document",
+     "josa"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 22185.3,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "인사동에서 전통공예를 볼 수 있어요. [1]",
+    "citations": [
+     {
+      "source_id": "place:insadong",
+      "quote": "전통 공예, 찻집, 갤러리, 기념품 가게가 모여 있는 서울 대표 전통거리입니다.",
+      "note": null,
+      "locator": "인사동 (Insadong) > 문단 3"
+     }
+    ]
+   },
+   {
+    "id": "M17",
+    "project": "maru",
+    "tags": [
+     "composite",
+     "partial",
+     "context_ref",
+     "time_sensitive"
+    ],
+    "expected_route": "composite",
+    "route": "composite",
+    "expected_status": [
+     "partial"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": true,
+    "status_ok": false,
+    "answerable": "partial",
+    "key_facts_ok": true,
+    "gold_cited": false,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 14193.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "[일부 확인 불가] 확인된 자료에서 찾지 못했어. [1][2][3]\n[일부 확인 불가] 확인된 자료에서 찾지 못했어. 가격·운영시간·개방 여부처럼 시점이 중요한 내용은 지금 시점에 맞는 근거가 없어서 확정할 수 없어. [4][5]",
+    "citations": [
+     {
+      "source_id": "place:national-palace-museum",
+      "quote": "실내/실외: 실내, 걷기 난이도: 낮음",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "국립고궁박물관 (National Palace Museum of Korea) > 문단 6"
+     },
+     {
+      "source_id": "place:gyeongbokgung-palace",
+      "quote": "방문 팁: 광화문, 국립고궁박물관, 국립민속박물관과 함께 묶으면 첫 방문자 코스로 좋습니다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "경복궁 (Gyeongbokgung Palace) > 문단 5"
+     },
+     {
+      "source_id": "place:gyeongbokgung-palace",
+      "quote": "조선 왕조의 대표 궁궐로 왕실 의례와 궁궐 건축을 한눈에 이해하기 좋은 장소입니다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "경복궁 (Gyeongbokgung Palace) > 문단 3"
+     },
+     {
+      "source_id": "place:changdeokgung-palace",
+      "quote": "방문 팁: 후원 관람은 예약이나 시간 제한이 있을 수 있으니 방문 전 확인하세요.",
+      "note": "답변 근거 아님(시점 미확인)",
+      "locator": "창덕궁 (Changdeokgung Palace) > 문단 5"
+     },
+     {
+      "source_id": "place:gwanghwamun-square",
+      "quote": "방문 팁: 경복궁 입장 전 짧게 둘러보고 사진을 남기기 좋습니다.",
+      "note": "답변 근거 아님(시점 미확인)",
+      "locator": "광화문광장 (Gwanghwamun Square) > 문단 5"
+     }
+    ]
+   },
+   {
+    "id": "C01",
+    "project": "campus-library",
+    "tags": [
+     "document",
+     "third_domain",
+     "synthetic"
+    ],
+    "expected_route": "document",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": true,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 18681.5,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "dropped": [],
+    "answer": "도서는 한 번에 5권까지 빌릴 수 있다. [1]",
+    "citations": [
+     {
+      "source_id": "guide:loan",
+      "quote": "재학생은 한 번에 5권까지 14일 동안 대출할 수 있다(합성 테스트 데이터).",
+      "note": null,
+      "locator": "[합성] 도서 대출 안내 > 대출 > 문단 1"
+     }
+    ]
+   }
+  ]
+ }
+}

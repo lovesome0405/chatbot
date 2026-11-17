@@ -1,0 +1,47 @@
+{
+  "project": "campus-library",
+  "description": "세 번째 소형 도메인 fixture (합성 테스트 데이터). 코드 없이 이 파일 등록만으로 검색되는지 확인한다.",
+  "collections": [
+    "guides"
+  ],
+  "aliases": {
+    "library": [
+      "도서관"
+    ],
+    "borrow": [
+      "대출"
+    ],
+    "return": [
+      "반납"
+    ],
+    "빌릴": [
+      "대출"
+    ],
+    "빌리": [
+      "대출"
+    ],
+    "빌려": [
+      "대출"
+    ]
+  },
+  "documents": [
+    {
+      "source_id": "guide:loan",
+      "collection": "guides",
+      "title": "[합성] 도서 대출 안내",
+      "body": "# 대출\n\n재학생은 한 번에 5권까지 14일 동안 대출할 수 있다(합성 테스트 데이터).\n\n## 연장\n\n반납 예정일 전에 1회 7일 연장할 수 있다(합성 테스트 데이터).",
+      "url": null,
+      "language": "ko",
+      "source_type": "synthetic"
+    },
+    {
+      "source_id": "guide:return",
+      "collection": "guides",
+      "title": "[합성] 도서 반납 안내",
+      "body": "반납은 무인 반납함 또는 대출 데스크에서 한다(합성 테스트 데이터). 연체 시 연체 일수만큼 대출이 정지된다.",
+      "url": null,
+      "language": "ko",
+      "source_type": "synthetic"
+    }
+  ]
+}

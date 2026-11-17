@@ -1,0 +1,21 @@
+# 실제 모델 없는 CI: fake 임베딩·생성으로 제어 흐름만 검증한다(검색 품질 수치 아님).
+# 이 저장소는 아직 원격에 올리지 않았다. 올릴 때 그대로 쓸 수 있는 설정 초안이며 GitHub에서 실행한 적은 없다.
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:0.8.1-pg17
+        env: {POSTGRES_USER: rag, POSTGRES_PASSWORD: rag, POSTGRES_DB: rag}
+        ports: ["54329:5432"]
+        options: --health-cmd "pg_isready -U rag" --health-interval 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13"}
+      - run: pip install -r requirements.lock
+      - run: python -m pytest -q
+        env:
+          TEST_DATABASE_URL: postgresql://rag:rag@127.0.0.1:54329/rag_test

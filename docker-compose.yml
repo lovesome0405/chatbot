@@ -1,0 +1,31 @@
+# 로컬 pgvector DB (기본). 앱은 호스트에서 실행한다.
+#   docker compose up -d db
+# 선택: 로컬 Ollama 컨테이너 (호스트에 Ollama가 이미 있으면 쓰지 않아도 된다)
+#   docker compose --profile llm up -d ollama && docker compose exec ollama ollama pull qwen2.5:3b
+services:
+  db:
+    image: pgvector/pgvector:0.8.1-pg17
+    environment:
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag        # 로컬 개발 전용 값. 운영/Supabase에서는 DATABASE_URL로 별도 자격 사용
+      POSTGRES_DB: rag
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - rag_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
+      interval: 3s
+      retries: 20
+
+  ollama:
+    profiles: ["llm"]
+    image: ollama/ollama:0.12.6
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - rag_ollama:/root/.ollama
+
+volumes:
+  rag_pg:
+  rag_ollama:
