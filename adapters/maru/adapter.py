@@ -127,8 +127,26 @@ class MaruAdapter(Adapter):
                 metadata={"course_id": cid, "place_ids": order, "snapshot": snap},
                 chunks=[Chunk(f"c{i:02d}", f"{c['title']['ko']} > 문단 {i}", t) for i, t in enumerate(paras, start=1)],
             ))
+        # 실제 공지 원문(scripts/fetch_royal_notice.py로 수집, 사람이 기간 확인 후 needs_review=false)이 있으면 합성 공지를 대체
+        replaced: set[str] = set()
+        for f in sorted((self.dir / "royal_notices").glob("*.json")):
+            n = json.loads(f.read_text(encoding="utf-8"))
+            if n.get("needs_review", True):
+                continue  # 확인 안 된 기간으로 답하지 않는다
+            replaced.add(n.get("replaces_synthetic") or "")
+            paras = [x for x in re.split(r"\n{1,}", n["body"]) if x.strip()]
+            docs.append(Document(
+                project=PROJECT, source_id=n["source_id"], collection="notices", title=n["title"], body=n["body"],
+                url=n["url"], language="ko", content_level="body", source_type="public_original",
+                published_at=_d(n.get("published_at")), valid_from=_d(n.get("valid_from")), valid_to=_d(n.get("valid_to")),
+                checked_at=datetime.fromisoformat(n["checked_at"]) if n.get("checked_at") else None,
+                metadata={"place_id": "gyeongbokgung-palace", "fetched_by": "scripts/fetch_royal_notice.py"},
+                chunks=[Chunk(f"p{i:02d}", f"{n['title']} > 문단 {i}", t) for i, t in enumerate(paras, start=1)],
+            ))
         for f in sorted(self.dir.glob("synthetic_*.json")):
             for s in json.loads(f.read_text(encoding="utf-8")):
+                if s["source_id"] in replaced:
+                    continue
                 docs.append(Document(
                     project=PROJECT, source_id=s["source_id"], collection=s["collection"], title=s["title"], body=s["body"],
                     url=s.get("url"), language="ko", content_level="body", source_type="synthetic",

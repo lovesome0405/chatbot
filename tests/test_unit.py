@@ -111,3 +111,24 @@ def test_claim_that_echoes_question_is_dropped():
                 {"text": "신입생은 2학기부터 적용돼.", "citations": [{"id": "E1", "quote": "신입생은 2학기부터 적용"}]}], evs, question=q)
     assert [c[0] for c in v.claims] == ["신입생은 2학기부터 적용돼."]
     assert any(d["reason"] == "echoes_question" for d in v.dropped)
+
+
+def test_real_royal_notice_replaces_synthetic_only_after_review(tmp_path):
+    import json
+    import shutil
+
+    from adapters.maru.adapter import MaruAdapter
+
+    d = tmp_path / "maru"
+    shutil.copytree("data/maru", d)
+    (d / "royal_notices").mkdir(exist_ok=True)
+    rec = {"source_id": "royal:1", "title": "실제 공지", "body": "개방 기간 2026. 9. 1. ~ 2026. 10. 31.", "url": "https://example.invalid/n",
+           "published_at": "2026-08-30", "valid_from": "2026-09-01", "valid_to": "2026-10-31",
+           "replaces_synthetic": "synthetic:royal-gbg-special-opening", "needs_review": True, "checked_at": "2026-11-18T00:00:00+00:00"}
+    (d / "royal_notices" / "1.json").write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
+    ids = {x.source_id: x for x in MaruAdapter(d).load().documents}
+    assert "royal:1" not in ids and "synthetic:royal-gbg-special-opening" in ids   # 검토 전: 적재 안 함
+    rec["needs_review"] = False
+    (d / "royal_notices" / "1.json").write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
+    ids = {x.source_id: x for x in MaruAdapter(d).load().documents}
+    assert ids["royal:1"].source_type == "public_original" and "synthetic:royal-gbg-special-opening" not in ids
