@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from .models import Evidence
@@ -21,7 +22,22 @@ _VALUES = re.compile(r"\d{4}-\d{1,2}-\d{1,2}|\d{1,2}:\d{2}|\d+\.\d+|\d{2,}")
 
 
 def _norm(s: str) -> str:
-    return _WS.sub(" ", (s or "").replace(" ", " ")).strip().lower()
+    """공백·전각 문자 정규화(NFKC, 전각 마침표). 내용 글자는 바꾸지 않는다."""
+    s = unicodedata.normalize("NFKC", (s or "").replace("\u00a0", " ")).replace("\u3002", ".")
+    return _WS.sub(" ", s).strip().lower()
+
+
+_TRAIL = ".!?…。 "
+
+
+def strip_locator_prefix(quote: str, locator: str) -> str:
+    """모델이 서버가 준 위치 표시(예: '코스 > 문단 5':)를 발췌 앞에 붙였으면 그 부분만 뗀다."""
+    q = quote.strip()
+    for wrap in ("'{}':", "\"{}\":", "[{}]", "{}:"):
+        pre = wrap.format(locator)
+        if locator and q.startswith(pre):
+            return q[len(pre):].strip()
+    return q
 
 
 def key_values(text: str) -> list[str]:
@@ -39,7 +55,7 @@ _SEG = re.compile(r"\s*(?:\||…|\.\.\.)\s*")
 
 def quote_in_source(quote: str, source: str) -> bool:
     """발췌가 원문에 그대로 있는가. ' | ' 또는 '…'로 이어 붙인 발췌는 각 구절(2자 이상)이 원문에 순서대로 있어야 한다."""
-    q, s = _norm(quote), _norm(source)
+    q, s = _norm(quote).rstrip(_TRAIL), _norm(source)
     if len(q) < 2:
         return False
     if q in s:
@@ -92,6 +108,7 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
                 out.unknown_ids += 1
                 out.dropped.append({"reason": "unknown_citation_id", "claim": text[:200], "eid": str(cit.get("id"))})
                 continue
+            quote = strip_locator_prefix(quote, ev.locator)
             if not quote_in_source(quote, ev.text):
                 out.quote_misses += 1
                 out.dropped.append({"reason": "quote_not_in_source", "eid": ev.eid, "claim": text[:200], "quote": quote[:200],

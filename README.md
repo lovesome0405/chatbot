@@ -72,7 +72,7 @@ export PYTHONPATH=src:.
 | `examples/maru-static/index.html` | Playwright로 390px 화면에서 실제 호출·렌더링, 가로 넘침 없음 (`reports/maru-static-demo.png`) | 공개 중계 엔드포인트만 쓴다. 공개 배포 시 HTTPS·도메인·남용 방지 정책이 따로 필요하다 |
 
 ## 테스트 (2026-11-17 실행)
-`pytest -q` → **31 passed** (단위 10 + 실제 PostgreSQL/pgvector 통합 21, fake 임베딩·생성).
+`pytest -q` → **33 passed** (단위 12 + 실제 PostgreSQL/pgvector 통합 21, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트가 통과했다.
 판정 가능한 필수 조건은 모두 자동 테스트로 확인했다:
 
 | 필수 조건 | 테스트 |
@@ -117,6 +117,11 @@ export PYTHONPATH=src:.
 
 인용의 의미 일치는 자동으로 판정할 수 없어서 따로 표시했어. 최종 실행의 생성 주장 16개는 Claude 1차 의견으로 모두 인용과 일치하지만, 5개는 답이 불완전해. 이전 회차에서는 자동 검증을 통과한 의미 오류가 실제로 나왔어(EVAL.md 4절). 사람 검토는 아직 하지 않았어.
 회차별 변경과 수치는 [reports/HISTORY.md](reports/HISTORY.md), 생성 형식 실험은 [reports/LLM-FORMAT.md](reports/LLM-FORMAT.md)에 있어.
+
+### 확대 평가 v2 (63문항, 3B vs 7B)
+결과를 보기 전에 질문 26개를 추가해 고정했다. 새 질문과 영어 질문에서는 RRF가 키워드·벡터 단독보다 높았다(영어 Hit@3 12/14 vs 9/14).
+7B는 3B보다 상태 일치(53 vs 48/63), 과잉 보류(10 vs 15/48), 영어 답변(8/8)이 나았다. 대신 지연이 약 2배다(평균 44초).
+두 모델 모두 자동 검증을 통과한 의미 오류가 있다. 요약은 [reports/v2/SUMMARY.md](reports/v2/SUMMARY.md), 사람 검토 시트는 [reports/v2/HUMAN-REVIEW.csv](reports/v2/HUMAN-REVIEW.csv)에 있다.
 
 ## 3분 시연 순서 (`scripts/demo.py`, 기록: `reports/demo-transcript.txt`)
 1. **오늘 점심** (롤리폴리 키, 기준 2026-11-10): 정형 조회로 중식 레코드를 그대로 반환. 모델 호출 0회. 출처 유형 "저장소 데이터"
