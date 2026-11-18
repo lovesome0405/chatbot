@@ -43,7 +43,9 @@ class LolypolyAdapter(Adapter):
     project = PROJECT
     allowed_collections = {"meals", "meal_hours", "events", "notices", "scholarship"}
     structured_keys = {"meals": {"date", "meal_type"}}
-    fresh_days = 30  # 운영시간처럼 시점이 중요한 값: 확인 시각이 30일 이내인 근거만
+    fresh_days = 30
+    persona = ("You are the campus guide of 롤리폴리, a student app for 한국폴리텍대학 춘천캠퍼스. "
+               "Talk like a kind senior student: short, clear and friendly (Korean: polite 해요체).")  # 운영시간처럼 시점이 중요한 값: 확인 시각이 30일 이내인 근거만
     aliases = {
         "학식": ["식단", "메뉴"], "점심": ["중식"], "저녁": ["석식"], "아침": ["조식"],
         "장학": ["장학금"], "scholarship": ["장학금", "장학"], "scholarships": ["장학금", "장학"],
@@ -137,7 +139,7 @@ class LolypolyAdapter(Adapter):
             meal = next((k for k, words in MEAL_WORDS.items() if has_any(low, words)), None)
             day = resolve_date(text, now) or seoul_now(now).date()
             if meal is None:
-                q = "조식·중식·석식 중 어느 끼니를 알려줄까?" if lang == "ko" else "Which meal do you mean: breakfast, lunch or dinner?"
+                q = "조식·중식·석식 중 어느 끼니를 알려드릴까요?" if lang == "ko" else "Which meal do you mean: breakfast, lunch or dinner?"
                 return Part("clarify", text, "meal", clarify=q)
             return Part("structured", text, "meal", params={"date": day.isoformat(), "meal_type": meal})
         if has_any(low, ["학사일정", "일정", "schedule", "calendar"]) and (resolve_range(text, now) or resolve_date(text, now)):
@@ -169,7 +171,7 @@ class LolypolyAdapter(Adapter):
         label = f"{fmt_day(d, lang)} {MEAL_KO[p['meal_type']] if lang == 'ko' else MEAL_EN[p['meal_type']]}"
         dbg = {"lookup": {"date": p["date"], "meal_type": p["meal_type"]}, "rows": len(rows)}
         if not rows:
-            m = (f"{label} 식단 레코드가 없어. 아직 수집되지 않았거나 공식 식단표에 없는 날짜야. 다른 날짜 메뉴로 대신 답하지 않을게."
+            m = (f"{label} 식단 레코드가 없어요. 아직 수집되지 않았거나 공식 식단표에 없는 날짜예요. 다른 날짜 메뉴로 대신 알려드리지 않을게요."
                  if lang == "ko" else
                  f"There is no meal record for {label}. It may not be collected yet; I won't substitute another day's menu.")
             rel = [Citation("lolypoly:meals-page", "식단 정보 (공식 홈페이지)", MEALS_URL, "", "식단 페이지", None,
@@ -179,11 +181,11 @@ class LolypolyAdapter(Adapter):
         items = r["metadata"].get("items") or []
         ev = r | {"locator": f"식단 > {label}"}
         if not items:
-            txt = (f"{label}: 공식 식단표에 메뉴가 비어 있어(레코드는 수집됨)." if lang == "ko"
+            txt = (f"{label}은 공식 식단표에 메뉴가 비어 있어요(레코드는 수집됨)." if lang == "ko"
                    else f"{label}: the official menu is empty for this meal (the record exists).")
             return PartResult("answered", claims=[Claim(txt, [citation_from(ev, "(공식 식단표에 메뉴 없음)")])], debug=dbg)
         menu = ", ".join(items)
-        txt = f"{label} 메뉴: {menu}" if lang == "ko" else f"{label} menu (Korean, as published): {menu}"
+        txt = f"{label} 메뉴는 이렇게 나와요: {menu}" if lang == "ko" else f"{label} menu (Korean, as published): {menu}"
         return PartResult("answered", claims=[Claim(txt, [citation_from(ev, menu)])], debug=dbg)
 
     def _events(self, part: Part, store, lang: str) -> PartResult:
@@ -191,7 +193,7 @@ class LolypolyAdapter(Adapter):
         rows = store.date_overlap(PROJECT, "events", s, e)
         dbg = {"lookup": part.params, "rows": len(rows)}
         if not rows:
-            m = f"{s}~{e} 기간의 학사일정 레코드가 없어." if lang == "ko" else f"No academic calendar records for {s}~{e}."
+            m = f"{s}~{e} 기간의 학사일정 레코드가 없어요." if lang == "ko" else f"No academic calendar records for {s}~{e}."
             return PartResult("insufficient_evidence", message=m, debug=dbg)
         claims = []
         for r in rows[:12]:
@@ -208,7 +210,7 @@ class LolypolyAdapter(Adapter):
             rows = [r for r in rows if r["metadata"].get("category") == cat or cat in r["title"]]
         rows.sort(key=lambda r: (r["published_at"] or date.min), reverse=True)
         if not rows:
-            return PartResult("insufficient_evidence", message="조건에 맞는 공지 레코드가 없어.", debug={"rows": 0})
+            return PartResult("insufficient_evidence", message="조건에 맞는 공지 레코드가 없어요.", debug={"rows": 0})
         claims = [Claim(f"- {r['title']} ({r['published_at']})",
                         [citation_from(r | {"locator": "공지 제목(본문 미수집)"}, r["title"], "제목만 있음")]) for r in rows[:5]]
         return PartResult("answered", claims=claims, debug={"rows": len(rows)})

@@ -109,6 +109,7 @@ def full_eval(engine, qs) -> dict:
         doc_parts = [p for p in res.debug.get("parts", []) if p["kind"] == "document"]
         r = {
             "id": q["id"], "project": q["project"], "tags": q["tags"], "expected_route": q["expected_route"],
+            "question": q["question"], "language": q["language"],
             "route": res.route, "expected_status": q["expected_status"], "status": res.status,
             "route_ok": res.route == q["expected_route"], "status_ok": res.status in q["expected_status"],
             "answerable": q["answerable"], "key_facts_ok": facts_ok,
@@ -117,6 +118,7 @@ def full_eval(engine, qs) -> dict:
             "unknown_ids_from_model": sum(p.get("unknown_ids", 0) or 0 for p in doc_parts),
             "quote_misses": sum(p.get("quote_misses", 0) or 0 for p in doc_parts),
             "value_mismatches": sum(p.get("value_mismatches", 0) or 0 for p in doc_parts),
+            "echo_enriched": sum(p.get("echo_enriched", 0) or 0 for p in doc_parts),
             "dropped": [d for p in doc_parts for d in p.get("dropped", [])],
             "raw_outputs": [p.get("raw_output") for p in doc_parts if p.get("raw_output")],
             "evidence_ids": [p.get("evidence_ids") for p in doc_parts if p.get("evidence_ids")],
@@ -167,6 +169,9 @@ def full_eval(engine, qs) -> dict:
         "english_answers_in_english": rate(
             all(len(re.findall(r"[가-힣]", ln)) <= len(re.findall(r"[A-Za-z]", ln)) for ln in r["answer"].splitlines())
             for r in results if "english" in r["tags"] and r["status"] in ("answered", "partial")),
+        "echo_like_model_claims": _echo_stats(results),
+        "model_echo_claims_enriched": sum(r.get("echo_enriched", 0) for r in results),
+        "korean_model_claims_haeyo": _haeyo_stats(results),
         "model_calls_total": sum(r["model_calls"] for r in results),
         "latency_ms": {"mean": round(statistics.mean(lat), 1), "p50": round(statistics.median(lat), 1),
                        "p95": round(sorted(lat)[max(0, int(len(lat) * 0.95) - 1)], 1), "max": max(lat)},
@@ -175,6 +180,50 @@ def full_eval(engine, qs) -> dict:
                      for r in results if not r["status_ok"] or r["key_facts_ok"] is False or not r["route_ok"]],
     }
     return {"summary": summary, "results": results, "review": review}
+
+
+def _model_lines(results):
+    """모델이 만든 답변 줄(서버 문장·정형 응답·보류 안내 제외)."""
+    for r in results:
+        if not r["model_calls"] or r["status"] not in ("answered", "partial"):
+            continue
+        for line in r["answer"].splitlines():
+            if line.startswith(("(서버 확인)", "(Server check)", "[일부", "[Partly", "공지 기준으로", "According to the official notice")) \
+                    or "순서로 둘러봐요" in line or " stops: " in line or re.match(r"^\d{4}-\d{2}-\d{2}\(.\) ", line) \
+                    or MSG_MARKERS(line):
+                continue
+            yield r, re.sub(r"\s*(\[\d+\])+\s*$", "", line).strip()
+
+
+def MSG_MARKERS(line: str) -> bool:
+    return line.startswith(("확인된 자료에서", "I couldn't find", "이 공지는 제목만"))
+
+
+def _echo_stats(results):
+    """질문을 거의 되풀이한 주장: 주장 토큰(조사 제거·2-gram 포함)의 60% 이상이 질문에도 있는 경우."""
+    from ragcore import textnorm
+
+    n = echo = 0
+    examples = []
+    for r, line in _model_lines(results):
+        a, b = set(textnorm.tokens(line)), set(textnorm.tokens(r["question"]))
+        if not a:
+            continue
+        n += 1
+        if len(a & b) / len(a) >= 0.6:
+            echo += 1
+            examples.append(f"{r['id']}: {line[:60]}")
+    return {"echo": echo, "denominator": n, "examples": examples[:6]}
+
+
+def _haeyo_stats(results):
+    n = ok = 0
+    for r, line in _model_lines(results):
+        if r.get("language") != "ko":
+            continue
+        n += 1
+        ok += bool(re.search(r"요[.!?]?$", line))
+    return {"ok": ok, "denominator": n, "rate": round(ok / n, 3) if n else None}
 
 
 def run(engine, questions_path, modes, generate, out_path=None) -> str:

@@ -33,6 +33,11 @@ def main():
          "| 지표 | " + " | ".join(names) + " |", "|---|" + "---|" * len(names)]
     for k, label in KEYS:
         L.append(f"| {label} | " + " | ".join(f(r["full"]["summary"].get(k, "-")) for r in runs) + " |")
+    for k, label in [("echo_like_model_claims", "질문 되풀이 주장"), ("korean_model_claims_haeyo", "한국어 주장 해요체")]:
+        L.append(f"| {label} | " + " | ".join(
+            (f"{r['full']['summary'][k].get('echo', r['full']['summary'][k].get('ok'))}/{r['full']['summary'][k]['denominator']}"
+             if k in r["full"]["summary"] else "-") for r in runs) + " |")
+    L.append("| 되풀이 주장을 근거로 보강한 수 | " + " | ".join(str(r["full"]["summary"].get("model_echo_claims_enriched", "-")) for r in runs) + " |")
     for k, label in [("false_abstentions", "답할 수 있는데 보류")]:
         L.append(f"| {label} | " + " | ".join(f"{r['full']['summary'][k]['count']}/{r['full']['summary'][k]['denominator']}" for r in runs) + " |")
     for k, label in [("cross_project_leaks", "프로젝트 간 노출"), ("invalid_citation_ids_returned", "없는 인용 ID 반환"),

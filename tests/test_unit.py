@@ -167,15 +167,49 @@ def test_korean_and_iso_dates_match_in_value_check():
     assert len(ok.claims) == 1 and len(bad.claims) == 0 and bad.value_mismatches == 1
 
 
-def test_royal_notice_extract_uses_board_detail_classes():
+def test_royal_notice_extract_real_page_regression():
+    """회귀 테스트: 주상 PC가 2026-11-18 저장한 실제 공지 상세 원본(공개 페이지)."""
     import importlib.util
 
     spec = importlib.util.spec_from_file_location("fetch_royal", "scripts/fetch_royal_notice.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    x = mod.extract(open("tests/fixtures/royal_notice_structure_mock.html", encoding="utf-8").read())
-    assert x["method"] == "board_detail" and x["title"] == "시험용 공지 제목"
+    x = mod.extract(open("tests/fixtures/royal_notice_20260830151817711582.raw.html", encoding="utf-8").read())
+    assert x["method"] == "board_detail"
+    assert x["title"] == "경복궁 근정전 월대 출입 제한 안내(2026.9.2.(수)~10.31.(토))"
     assert x["published_at"] == "2026-08-30"
-    assert "통합검색" not in x["body"] and "관람시간" not in x["body"] and "개인정보" not in x["body"]  # 메뉴·하단 제외
-    assert "안쪽 문단도 포함" in x["body"] and "시험용 문장 석조물의손상이우려되어" in x["body"]  # 중첩, 글자 공백만 정리
     assert [d["date"] for d in x["date_candidates"]] == ["2026-09-02", "2026-10-31"]
+    assert "근정전 월대 출입을 제한합니다" in x["body"] and "보존 관리에 협조하여 주시기 바랍니다" in x["body"]
+    assert not any(w in x["body"] for w in ("통합검색", "관람시간", "공지사항", "보도자료"))  # 메뉴가 섞이지 않음
+
+
+def test_course_order_added_from_data_when_course_cited():
+    from datetime import datetime
+
+    from ragcore.adapter import Claim
+    from ragcore.models import Citation
+    from ragcore.registry import build_adapters
+    from ragcore.timeutil import SEOUL
+
+    ma = build_adapters()["maru"]
+    part = ma.plan("북촌 한옥마을이랑 같이 둘러볼 궁궐 코스 있어?", "ko", {}, datetime(2026, 11, 17, tzinfo=SEOUL))[0]
+    cit = Citation("course:bukchon-hanok-culture-course", "북촌 한옥 문화 코스", None, "코스 순서: 북촌한옥마을 → 창덕궁 → 운현궁",
+                   "북촌 한옥 문화 코스 > 문단 2", None, "repository_data")
+    extra = ma.extra_claims(part, [Claim("네, 북촌 한옥마을과 함께 둘러볼 궁궐 코스가 있어요.", [cit])], "ko")
+    assert len(extra) == 1 and "북촌한옥마을 → 창덕궁 → 운현궁" in extra[0].text
+    assert extra[0].citations[0].quote == "코스 순서: 북촌한옥마을 → 창덕궁 → 운현궁"   # 적재된 문단 원문과 같음
+    full = ma.extra_claims(part, [Claim("북촌한옥마을, 창덕궁, 운현궁을 둘러봐요.", [cit])], "ko")
+    assert full == []                                                                   # 이미 다 말했으면 붙이지 않음
+
+
+def test_affirmative_echo_kept_and_enriched_with_quote():
+    """질문을 긍정문으로 되풀이한 주장은 버리지 않고, 검증된 근거 발췌를 붙여 설명을 보강한다."""
+    from ragcore.citations import enrich_echo
+
+    ev = _ev("E1", "전통 공예, 찻집, 갤러리, 기념품 가게가 모여 있는 서울 대표 전통거리입니다.")
+    q = "인사동에서 전통공예를 볼 수 있어?"
+    v = verify([{"text": "인사동에서 전통공예를 볼 수 있어요.",
+                 "citations": [{"id": "E1", "quote": "전통 공예, 찻집, 갤러리, 기념품 가게가 모여 있는 서울 대표 전통거리"}]}], [ev], question=q)
+    assert len(v.claims) == 1 and v.echo_claims == {0}
+    text = enrich_echo(v.claims[0][0], v.claims[0][1][0][1], "ko")
+    assert text.startswith("인사동에서 전통공예를 볼 수 있어요.") and "찻집, 갤러리" in text

@@ -20,14 +20,14 @@ from .timeutil import seoul_now
 log = logging.getLogger("ragcore.request")
 
 MSG = {
-    "insufficient": {"ko": "확인된 자료에서 찾지 못했어.", "en": "I couldn't find this in the verified sources."},
-    "title_only": {"ko": "이 공지는 제목만 수집돼 있어서 세부 내용은 확인할 수 없어. 원문 링크에서 확인해줘.",
+    "insufficient": {"ko": "확인된 자료에서는 찾지 못했어요.", "en": "I couldn't find this in the verified sources."},
+    "title_only": {"ko": "이 공지는 제목만 수집돼 있어서 세부 내용은 확인할 수 없어요. 원문 링크에서 확인해 주세요.",
                    "en": "Only the title of this notice was collected, so the details can't be confirmed. Please check the original link."},
-    "time": {"ko": "가격·운영시간·개방 여부처럼 시점이 중요한 내용은 지금 시점에 맞는 근거가 없어서 확정할 수 없어.",
-             "en": "This depends on the current date (prices, hours, opening status), and no source valid for the current date was found, so I can't confirm it."},
-    "unavailable": {"ko": "일시적인 오류로 답변을 만들지 못했어. 아래는 확인 가능한 검색 결과야(생성된 답변 아님).",
+    "time": {"ko": "가격·운영시간·출입 가능 여부처럼 시점이 중요한 내용은 지금 시점에 맞는 근거가 없어서 확정할 수 없어요.",
+             "en": "This depends on the current date (prices, hours, access), and no source valid for the current date was found, so I can't confirm it."},
+    "unavailable": {"ko": "잠시 오류가 나서 답변을 만들지 못했어요. 아래는 확인할 수 있는 검색 결과예요(생성된 답변 아님).",
                     "en": "A temporary error prevented generating an answer. Below are search results you can check (not a generated answer)."},
-    "partial": {"ko": "[일부 확인 불가]", "en": "[Partly unconfirmed]"},
+    "partial": {"ko": "[일부는 확인하지 못했어요]", "en": "[Partly unconfirmed]"},
 }
 
 
@@ -151,7 +151,7 @@ class Engine:
         for i, e in enumerate(body, start=1):  # 모델에 보낼 ID를 1부터 다시 매김
             e.eid = f"E{i}"
         try:
-            gen = self.generator.generate(part.text, lang, body, today=as_of.isoformat())
+            gen = self.generator.generate(part.text, lang, body, today=as_of.isoformat(), persona=getattr(adapter, "persona", ""))
         except GenerationError as exc:
             dbg["error"] = f"generation:{type(exc).__name__}"
             return PartResult("unavailable", message=msg("unavailable", lang),
@@ -161,15 +161,21 @@ class Engine:
         dbg |= {"gen_ms": round(gen.latency_ms, 1), "abstain": gen.abstain, "dropped": checked.dropped,
                 "unknown_ids": checked.unknown_ids, "quote_misses": checked.quote_misses,
                 "value_mismatches": checked.value_mismatches, "raw_claims": len(gen.claims),
+                "echo_enriched": len(checked.echo_claims),
                 "raw_output": gen.raw[:2000] if gen.raw else None, "evidence_ids": [(e.eid, e.source_id, e.locator) for e in body]}
         action = self._action_claims(adapter, part, body, as_of, lang) if part.time_sensitive else []
         if not checked.claims and not action:
             rel = [citation_from(e, e.text[:120], "관련 원문(답변 근거 아님)") for e in body[:3]]
             return PartResult("insufficient_evidence", message=msg("insufficient", lang), related=rel, model_calls=1,
                               debug=dbg)
-        claims = action + [Claim(text, [citation_from(ev, quote) for ev, quote in good]) for text, good in checked.claims]
+        claims = action + [
+            Claim(citecheck.enrich_echo(text, good[0][1], lang) if i in checked.echo_claims else text,
+                  [citation_from(ev, quote) for ev, quote in good])
+            for i, (text, good) in enumerate(checked.claims)]
         if part.time_sensitive:
             claims += self._period_notes(checked, as_of, lang, skip={c.citations[0].source_id for c in action})
+        if hasattr(adapter, "extra_claims"):  # 어댑터가 메타데이터로 결정적으로 보강(예: 코스 순서)
+            claims += adapter.extra_claims(part, claims, lang)
         return PartResult("answered", claims=claims, model_calls=1, debug=dbg)
 
     def _action_claims(self, adapter, part: Part, body: list[Evidence], as_of, lang) -> list[Claim]:
@@ -200,7 +206,7 @@ class Engine:
             for ev, _q in good:
                 if (ev.valid_from or ev.valid_to) and ev.source_id not in seen and ev.source_id not in skip:
                     seen.add(ev.source_id)
-                    txt = (f"(서버 확인) 근거 적용 기간 {ev.valid_from}~{ev.valid_to}, 기준일 {as_of}은 이 기간 안이야."
+                    txt = (f"(서버 확인) 근거 적용 기간은 {ev.valid_from}~{ev.valid_to}이고, 기준일 {as_of}은 이 기간 안이에요."
                            if lang == "ko" else
                            f"(Server check) Source validity {ev.valid_from} to {ev.valid_to}; the reference date {as_of} is within it.")
                     out.append(Claim(txt, [citation_from(ev, f"{ev.valid_from}~{ev.valid_to}", "적용 기간(메타데이터)")]))

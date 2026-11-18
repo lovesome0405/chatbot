@@ -18,7 +18,7 @@ from pathlib import Path
 from ragcore import textnorm
 from ragcore.adapter import DETAIL_TERMS, TIME_SENSITIVE_TERMS, Adapter, Claim, Part, PartResult, SyncBatch, has_any
 from ragcore.engine import citation_from
-from ragcore.models import Chunk, Document
+from ragcore.models import Chunk, Citation, Document
 
 PROJECT = "maru"
 GITHUB = "https://github.com/lovesome0405/ari/blob/{commit}/{path}"
@@ -32,7 +32,10 @@ RANKING_TERMS = ["추천 순위", "인기 코스", "인기 순위", "순위", "t
 class MaruAdapter(Adapter):
     project = PROJECT
     allowed_collections = {"places", "courses", "notices"}
-    fresh_days = 0  # 가격·운영시간·개방 여부는 적용 기간이 명시된 근거만 인정
+    fresh_days = 0
+    # ari 앱의 ARI_LLM_SYSTEM_PROMPT("helpful local guide", 따뜻하고 명확하게)를 따른 페르소나
+    persona = ("You are 아리 (ARI), the heritage guide of the MARU app for visitors to Seoul. "
+               "Speak warmly and clearly like a helpful local guide, concise first, then helpful (Korean: polite 해요체).")  # 가격·운영시간·개방 여부는 적용 기간이 명시된 근거만 인정
     base_aliases = {
         "palace": ["궁궐", "궁"], "palaces": ["궁궐", "궁"], "royal": ["왕실"], "king": ["왕", "왕실"], "joseon": ["조선"],
         "ritual": ["의례", "의식"], "rituals": ["의례", "의식"], "ceremony": ["의례", "의식"], "ceremonies": ["의례", "의식"],
@@ -184,7 +187,7 @@ class MaruAdapter(Adapter):
         if has_any(low, COURSE_REF):
             cid = ctx.get("course_id")
             if not cid:
-                q = "어느 코스를 말하는지 알려줄래?" if lang == "ko" else "Which course do you mean?"
+                q = "어느 코스를 말씀하시는지 알려 주실래요?" if lang == "ko" else "Which course do you mean?"
                 return Part("clarify", text, "course_ref", clarify=q)
             order = [f"place:{p}" for p in self.course_place_ids(cid)]
             # 코스 문서(코스 순서·추천 이유)를 맨 앞에, 이어서 앱이 정한 장소 순서를 그대로 보존
@@ -199,7 +202,7 @@ class MaruAdapter(Adapter):
                         else f"{text} (here = {r.get('nameEn', '')} / {r['nameKo']})")
                 return Part("document", hint, "place_ref", source_ids=[f"place:{pid}"], time_sensitive=ts, needs_detail=detail)
             if not named:
-                q = "어느 장소를 말하는지 알려줄래?" if lang == "ko" else "Which place do you mean?"
+                q = "어느 장소를 말씀하시는지 알려 주실래요?" if lang == "ko" else "Which place do you mean?"
                 return Part("clarify", text, "place_ref", clarify=q)
         return Part("document", text, "doc", time_sensitive=ts, needs_detail=detail)
 
@@ -209,12 +212,35 @@ class MaruAdapter(Adapter):
             if r.get("nameEn"):
                 yield r["nameEn"]
 
+    def extra_claims(self, part: Part, claims: list[Claim], lang: str) -> list[Claim]:
+        """코스를 묻는 질문에 코스 문서를 인용했으면, 코스 순서를 데이터에서 그대로 붙인다(모델 판단 아님)."""
+        if not (part.intent == "course_ref" or has_any(part.text.lower(), COURSE_TERMS)):
+            return []
+        answer = " ".join(c.text for c in claims)
+        out, seen = [], set()
+        for c in [x for cl in claims for x in cl.citations]:
+            cid = c.source_id.removeprefix("course:")
+            if not c.source_id.startswith("course:") or cid in seen or cid not in self._courses:
+                continue
+            seen.add(cid)
+            course = self._courses[cid]
+            names = [p["name"]["ko"] for p in course["places"]]
+            if all(n in answer for n in names):
+                continue
+            line = "코스 순서: " + " → ".join(names)  # 적재 시 문단 2와 같은 원문
+            txt = (f"{course['title']['ko']}는 {' → '.join(names)} 순서로 둘러봐요." if lang == "ko"
+                   else f"{course['title']['en']} stops: " + " → ".join(f"{p['name']['en']} ({p['name']['ko']})" for p in course["places"]))
+            out.append(Claim(txt, [Citation(source_id=c.source_id, title=c.title, url=c.url, quote=line,
+                                            locator=f"{course['title']['ko']} > 문단 2", as_of=c.as_of,
+                                            source_type=c.source_type, note="코스 순서(데이터)")]))
+        return out
+
     def run_structured(self, part: Part, store, now: datetime, lang: str) -> PartResult:
         if part.intent != "ranking":
             raise NotImplementedError(part.intent)
         ids = part.params.get("ids") or []
         if not ids:
-            m = ("앱이 계산한 추천 순위가 전달되지 않아 순위를 말할 수 없어." if lang == "ko"
+            m = ("앱이 계산한 추천 순위가 전달되지 않아서 순위를 말씀드릴 수 없어요." if lang == "ko"
                  else "The app did not pass its computed ranking, so I can't state one.")
             return PartResult("insufficient_evidence", message=m)
         docs = {d["source_id"]: d for d in store.documents(PROJECT, "courses")}
@@ -225,6 +251,9 @@ class MaruAdapter(Adapter):
                 claims.append(Claim(f"{i}. {d['title']}", [citation_from(d | {"locator": "코스 목록"}, d["title"],
                                                                          "순위: MARU 앱 계산값(전달받은 순서)")]))
         return PartResult("answered", claims=claims, debug={"order": ids})
+
+
+COURSE_TERMS = ["코스", "루트", "동선", "course", "route", "tour"]
 
 
 def _d(v):

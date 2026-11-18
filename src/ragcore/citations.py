@@ -91,17 +91,25 @@ class Verified:
     unknown_ids: int = 0
     quote_misses: int = 0
     value_mismatches: int = 0
+    echo_claims: set = field(default_factory=set)   # 질문을 긍정문으로 되풀이한 주장의 위치(버리지 않고 근거로 보강)
+
+
+def _overlap(text: str, question: str) -> float:
+    from .textnorm import tokens
+    a, b = set(tokens(text)), set(tokens(question))
+    return len(a & b) / len(a) if a else 0.0
+
+
+def enrich_echo(text: str, quote: str, lang: str) -> str:
+    """되풀이 주장 뒤에 이미 검증된 근거 발췌를 붙인다(새 사실을 만들지 않음)."""
+    q = quote.strip().rstrip(".。")
+    return f"{text.rstrip()} 자료에는 “{q}”라고 나와 있어요." if lang == "ko" else f'{text.rstrip()} The source says: "{q}".'
 
 
 def _echoes_question(text: str, question: str | None) -> bool:
-    """질문을 되풀이한 문장(물음표 포함 또는 토큰 85% 이상 겹침)은 사실 주장이 아니다."""
-    if not question:
-        return False
-    if text.rstrip().endswith("?"):
-        return True
-    from .textnorm import tokens
-    a, b = set(tokens(text)), set(tokens(question))
-    return bool(a) and len(a & b) / len(a) >= 0.85
+    """질문을 그대로 베낀 의문문(물음표로 끝남)은 사실 주장이 아니므로 버린다.
+    긍정문 되풀이("~할 수 있어요")는 근거와 맞는 답일 수 있어 버리지 않고 echo_claims 로 표시한다(v0.3.0)."""
+    return bool(question) and text.rstrip().endswith(("?", "？"))
 
 
 def verify(claims: list[dict], evidences: list[Evidence], question: str | None = None) -> Verified:
@@ -136,5 +144,7 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
             out.value_mismatches += 1
             out.dropped.append({"reason": "value_not_in_cited_source", "values": missing, "claim": text[:200]})
             continue
+        if question and _overlap(text, question) >= 0.6:
+            out.echo_claims.add(len(out.claims))
         out.claims.append((text, good))
     return out
