@@ -206,13 +206,41 @@ def test_affirmative_echo_kept_and_enriched_with_quote():
     """질문을 긍정문으로 되풀이한 주장은 버리지 않고, 검증된 근거 발췌를 붙여 설명을 보강한다."""
     from ragcore.citations import enrich_echo
 
-    ev = _ev("E1", "전통 공예, 찻집, 갤러리, 기념품 가게가 모여 있는 서울 대표 전통거리입니다.")
+    ev = _ev("E1", "전통 공예, 찻집, 갤러리, 기념품 가게가 모여 있는 서울 대표 전통거리입니다.", title="인사동 (Insadong)")
     q = "인사동에서 전통공예를 볼 수 있어?"
     v = verify([{"text": "인사동에서 전통공예를 볼 수 있어요.",
                  "citations": [{"id": "E1", "quote": "전통 공예, 찻집, 갤러리, 기념품 가게가 모여 있는 서울 대표 전통거리"}]}], [ev], question=q)
     assert len(v.claims) == 1 and v.echo_claims == {0}
     text = enrich_echo(v.claims[0][0], v.claims[0][1][0][1], "ko")
     assert text.startswith("인사동에서 전통공예를 볼 수 있어요.") and "찻집, 갤러리" in text
+
+
+def test_echo_without_support_for_question_words_is_dropped():
+    """v0.3.0 평가 회귀: 질문 되풀이에 무관한 발췌를 붙이면 근거 없는 답이 근거 있어 보인다.
+    되풀이 주장 속 질문 단어(축제·주말, 1학기)가 인용 근거에 없으면 버린다."""
+    ev = _ev("E1", "복원 한옥과 전통 정원을 한 번에 볼 수 있는 도심 속 전통문화 공간입니다.", title="남산골한옥마을 (Namsangol Hanok Village)")
+    v = verify([{"text": "남산골한옥마을 이번 주말에 축제가 열립니다.",
+                 "citations": [{"id": "E1", "quote": "복원 한옥과 전통 정원을 한 번에 볼 수 있는 도심 속 전통문화 공간입니다"}]}],
+               [ev], question="남산골한옥마을 이번 주말에 축제해?")
+    assert v.claims == [] and v.dropped[0]["reason"] == "echo_unsupported"
+
+    row = _ev("E1", "구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 직전학기 학과별 성적우수자 학급당 1명 | "
+                    "비고: 직전학기 성적 3.0이상 신입생은 2학기부터 적용")
+    v = verify([{"text": "성적우수장학금은 신입생도 1학기에 받을 수 있습니다.",
+                 "citations": [{"id": "E1", "quote": "종류: 성적우수 장학금"}]}], [row], question="성적우수장학금은 신입생도 1학기에 받을 수 있어?")
+    assert v.claims == [] and v.dropped[0]["reason"] == "echo_unsupported"
+
+
+def test_supported_echo_kept_and_pure_copy_dropped():
+    row = _ev("E1", "구분: 교외 | 종류: 부사관 장학금 | 수혜자격: 부사관 합격자")
+    v = verify([{"text": "부사관 합격하면 부사관 장학금을 받을 수 있습니다.",
+                 "citations": [{"id": "E1", "quote": "종류: 부사관 장학금"}]}], [row], question="부사관 합격하면 장학금 받을 수 있어?")
+    assert len(v.claims) == 1 and v.echo_claims == {0}
+
+    ev = _ev("E1", "조선 수도 한양을 둘러싸던 성곽으로 서울의 지형과 역사를 함께 보여줍니다.", title="한양도성")
+    v = verify([{"text": "도성 성곽을 따라 걷고 싶어", "citations": [{"id": "E1", "quote": "조선 수도 한양을 둘러싸던 성곽"}]}],
+               [ev], question="도성 성곽을 따라 걷고 싶어")
+    assert v.claims == [] and v.dropped[0]["reason"] == "echoes_question"
 
 
 def test_non_answer_claims_are_dropped():
@@ -233,3 +261,8 @@ def test_prompt_is_language_specific():
     ko = build_messages("가도 돼?", "ko", [], "2026-11-18", "")[0]["content"]
     assert "해요" not in en and "예요" not in en and "Answer in English" in en
     assert "해요체" in ko
+
+
+def test_topic_particle_follows_final_consonant():
+    from ragcore.textnorm import topic
+    assert topic("근정전 월대") == "근정전 월대는" and topic("근정전") == "근정전은" and topic("Jongmyo") == "Jongmyo은(는)"

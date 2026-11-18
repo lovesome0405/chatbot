@@ -112,3 +112,11 @@ def is_korean(text: str) -> bool:
     hangul = len(re.findall(r"[가-힣]", text or ""))
     latin = len(re.findall(r"[a-zA-Z]", text or ""))
     return hangul >= max(1, latin // 3)
+
+
+def topic(word: str) -> str:
+    """받침에 맞춰 은/는을 붙인다(한글이 아니면 은(는))."""
+    last = (word or "").rstrip()[-1:]
+    if not ("가" <= last <= "힣"):
+        return f"{word}은(는)"
+    return f"{word}{'은' if (ord(last) - 0xAC00) % 28 else '는'}"

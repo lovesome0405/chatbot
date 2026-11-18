@@ -190,7 +190,7 @@ class Engine:
             if not q & {t for term in md.get("action_terms", []) for t in textnorm.tokens(term)}:
                 continue
             if lang == "ko":
-                txt = (f"공지 기준으로 {md['action_target']}은 {ev.valid_from}부터 {ev.valid_to}까지 출입이 제한돼요. "
+                txt = (f"공지 기준으로 {textnorm.topic(md['action_target'])} {ev.valid_from}부터 {ev.valid_to}까지 출입이 제한돼요. "
                        f"기준일 {as_of}은 이 기간 안이라 지금은 올라갈 수 없어요.")
             else:
                 txt = (f"According to the official notice, access to {md.get('action_target_en', md['action_target'])} is restricted "

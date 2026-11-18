@@ -100,6 +100,41 @@ def _overlap(text: str, question: str) -> float:
     return len(a & b) / len(a) if a else 0.0
 
 
+# 되풀이 주장의 '질문 단어'를 근거에서 찾을 때 떼어 보는 서술어 어미(긴 것부터)
+_PRED_ENDINGS = ("했어요", "해요", "하면", "하고", "하는", "할까", "했어", "해서", "어요", "아요", "해", "할", "을", "를", "고", "면", "어", "아")
+_TIME_WORDS = {"지금", "오늘", "현재", "요즘", "이번", "내일"}   # 기간 판단은 서버가 따로 한다
+
+
+def _stems(word: str) -> list[str]:
+    from .textnorm import strip_josa
+    m = re.match(r"^(\d*)([가-힣]+)$", word)          # '1학기에' 같은 숫자+한글 단어도 조사를 뗀다
+    if not m:
+        return []
+    base = m.group(1) + strip_josa(m.group(2))
+    for e in _PRED_ENDINGS:
+        if base.endswith(e):
+            # 어간이 한 글자인 서술어(받을·볼·걷고)는 단어 비교로 확인할 수 없어 건너뛴다
+            return [base, base[: -len(e)]] if len(base) - len(e) >= 2 else []
+    return [base]
+
+
+def echo_supported(text: str, question: str, evidence_text: str) -> bool:
+    """되풀이 주장이 질문에서 가져온 한국어 단어를 모두 인용 근거(제목·본문)에서 찾을 수 있는지.
+    단어 비교라 의미까지 보장하지는 않는다. 영어 주장은 한국어 근거와 단어로 비교할 수 없어 검사하지 않는다."""
+    from .textnorm import QUERY_STOPWORDS, normalize
+    src = normalize(evidence_text).replace(" ", "")
+    q_stems = {st for w in normalize(question).split() for st in _stems(w)}
+    for w in normalize(text).split():
+        if w in QUERY_STOPWORDS:
+            continue
+        stems = [st for st in _stems(w) if len(st) >= 2 and st not in QUERY_STOPWORDS and st not in _TIME_WORDS]
+        if not stems or not (set(stems) & q_stems):
+            continue
+        if not any(st in src for st in stems):
+            return False
+    return True
+
+
 def enrich_echo(text: str, quote: str, lang: str) -> str:
     """되풀이 주장 뒤에 이미 검증된 근거 발췌를 붙인다(새 사실을 만들지 않음)."""
     q = quote.strip().rstrip(".。")
@@ -159,6 +194,12 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
             out.dropped.append({"reason": "value_not_in_cited_source", "values": missing, "claim": text[:200]})
             continue
         if question and _overlap(text, question) >= 0.6:
+            if _overlap(text, question) == 1.0:          # 질문을 글자 그대로 옮김: 답이 아님
+                out.dropped.append({"reason": "echoes_question", "claim": text[:200]})
+                continue
+            if not echo_supported(text, question, cited_text):   # v0.3.0 회귀 수정: 무관한 발췌로 근거 없는 답을 감싸지 않는다
+                out.dropped.append({"reason": "echo_unsupported", "claim": text[:200]})
+                continue
             out.echo_claims.add(len(out.claims))
         out.claims.append((text, good))
     return out

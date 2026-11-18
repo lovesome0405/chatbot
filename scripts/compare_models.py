@@ -24,9 +24,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="+")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--labels", help="쉼표로 구분한 열 이름(기본: 생성 모델 이름)")
     a = ap.parse_args()
     runs = [json.loads(Path(p).read_text(encoding="utf-8")) for p in a.files]
-    names = [r["meta"]["generator"] for r in runs]
+    names = a.labels.split(",") if a.labels else [r["meta"]["generator"] for r in runs]
     qs = {json.loads(l)["id"]: json.loads(l) for l in (ROOT / "eval" / "questions.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()}
     L = [f"# 생성 모델 비교 ({runs[0]['meta']['questions']}문항, 임베딩 {runs[0]['meta']['embedder']})", "",
          f"환경: {runs[0]['meta']['environment']['cpus']} CPU, GPU 없음. 검색 단계는 모델과 무관하게 동일하다.", "",
