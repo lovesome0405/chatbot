@@ -26,7 +26,7 @@ src/ragcore/  config · models · textnorm(한글 정규화) · chunking · embe
               ingest(멱등 적재) · retrieval(키워드/벡터/RRF) · adapter(계약) · generation(fake/Ollama) · citations(검증)
               engine(라우팅·보류·결합) · api(FastAPI) · cli · registry
 adapters/     lolypoly/ · maru/(+ ari_baseline: 기존 scoreAriTextMatch 이식)
-data/         원본 사본(유형 위 표)        eval/  questions.jsonl(37문항) · run_eval.py
+data/         원본 사본(유형 위 표)        eval/  questions.jsonl(63문항) · run_eval.py
 examples/     django_lolypoly/ · ari_maru/ · maru-static/      reports/  평가·시연 기록
 ```
 처리 흐름: 질문 → 어댑터 규칙으로 **정형 조회 / 문서 검색 / 복합 / 되묻기** 라우팅 → (문서) 범위·공개·적용 기간 필터 후 키워드와 벡터를 독립 실행, 각 상위 10을 RRF(1/(60+순위))로 결합 → 자격 필터(제목만·시점) → 상위 4조각만 모델에 전달 → 모델이 주장별 인용 ID·발췌를 JSON으로 반환 → 서버가 ID·발췌 원문 포함·날짜/숫자 대조·질문 되풀이·기간 모순을 검사해 통과한 주장만 답변 → URL·제목은 서버가 원본 메타데이터로 채움.
@@ -135,15 +135,14 @@ export PYTHONPATH=src:.
 ## 한계와 미실행 항목
 | 항목 | 상태 | 원인 / 재현 |
 |---|---|---|
-| 국가유산청 궁능유적본부 공지 원문 | **미확인** → 합성 fixture로 대체 | 이 컨테이너에서 TLS 핸드셰이크 중 상대 서버가 연결을 끊음(프록시 CONNECT 200 후 `Connection reset by peer`, 재시도 TLS1.2/1.3 동일). 재현: `curl -v "https://royal.khs.go.kr/ROYAL/contents/R403000000.do?id=20260830151817711582&schBdcode=gbg&schM=view"` |
+| 국가유산청 궁능유적본부 공지 원문 | **해결(v0.2.2)** | 클라우드 컨테이너에서는 접속이 끊겨(TLS reset) 주상 PC에서 `scripts/fetch_royal_notice.py`로 수집. 실제 원본 HTML은 `tests/fixtures/`의 회귀 테스트로 보존 |
+| 사람 검토(인용의 의미 일치) | **일부(13/62)** | `reports/v2/HUMAN-REVIEW.csv`. 지지 판정 Claude 1차와 11/13 일치. 나머지는 Claude 판단만 있어 "사람 미검토" |
+| 자동 검증을 통과하는 의미 오류 | 남음 | 인용 문구가 원문 그대로여도 주장 의미가 반대일 수 있음(7B L09 "신입생도 1학기에 받을 수 있다" ↔ 근거 "2학기부터"). 서버 검증은 ID·발췌·날짜·숫자만 대조 |
+| 작은 모델(3B)의 지시 이행 | 남음 | 질문을 해요체 의문문으로 되풀이하는 경우가 있어 서버가 폐기 → 보류. 7B는 덜함 |
 | 기존 Ari `fallbackAriReply`/`askAri` 응답 비교 | 미실행 | 브라우저 DOM·i18n·localStorage 의존이라 서버에서 그대로 실행하지 못함. 검색 단계(`scoreAriTextMatch`)만 이식해 app.js 원본과 700케이스 일치 확인 후 비교 |
-| 사람 검토(인용의 의미 일치) | 미실행 | 자동 검증은 ID·발췌 포함·값 대조만 보장. `reports/*.review.csv`의 사람 판정 칸이 비어 있음. Claude 1차 의견은 EVAL.md에 따로 표시(사람 검토 아님) |
-| 영어 질문 → 영어 답변 | 부분 실패 | 3B 모델이 한국어 원문을 그대로 답으로 옮기는 경우가 있음(종묘 질문). 서버에서 막지 않고 지표로 기록 |
-| qwen2.5:7b 전체 평가 | 미실행 | 시간 제약(문항당 50~95초). 3문항 비교만 `reports/LLM-FORMAT.md` |
 | Supabase 별도 DB 연결 | 미실행 | 설정과 풀러 대응만 있음. 실제 프로젝트 생성·연결은 외부 서비스 변경이라 하지 않음. 재현: `.env`의 `DATABASE_URL` 교체 후 `python -m ragcore.cli ingest` |
-| GitHub Actions CI | 미실행 | 원격 저장소가 없어 `.github/workflows/ci.yml`은 초안. 같은 명령(`pytest -q`)은 로컬 pgvector로 통과 |
-| 운영 반영(LOLYPOLY·MARU 사이트) | 범위 밖 | 연결 예제와 로컬 호출만 확인. 운영 배포·원격 푸시는 별도 작업 |
-| Windows·학교 PC 실행 | 미검증 | 이 결과는 Linux 컨테이너(4 CPU) 기준 |
+| 실제 앱 연결(LOLYPOLY·MARU) | 다음 단계 | 연결 예제와 로컬 API 호출만 확인. 롤리폴리 식단 데이터는 2026-11-15까지라 최신 export·동기화가 필요 |
+| Windows 실행 | 일부 | 주상 Windows PC에서 수집기 실행·원본 재추출 확인. 엔진 전체 실행은 Linux 컨테이너(4 CPU) 기준 |
 | 원본 데이터 라이선스 | 확인 필요 | LOLYPOLY·ari 저장소에 LICENSE 없음. 로컬 데모용 사본이며 재배포 전 소유자 확인 |
 
-라우팅 규칙과 별칭 사전은 이번 평가 질문을 보며 만든 소규모 규칙이야. 새 질문 유형에서는 경로 정확도가 떨어질 수 있어. 평가셋 37문항도 작아서, 수치는 이 데이터 안에서의 관찰로만 읽어야 해.
+라우팅 규칙과 별칭 사전은 평가 질문을 보며 만든 소규모 규칙이야. 새 질문 유형에서는 경로 정확도가 떨어질 수 있어. 평가셋 63문항도 작아서, 수치는 이 데이터 안에서의 관찰로만 읽어야 해.
