@@ -21,6 +21,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
+from . import __version__
 from .config import Settings
 from .services import build, load_dotenv
 from .timeutil import SEOUL
@@ -62,7 +63,7 @@ def engine():
     return build(Settings())
 
 
-app = FastAPI(title="ragcore", version="0.1.0")
+app = FastAPI(title="ragcore", version=__version__)
 _settings = Settings()
 app.add_middleware(CORSMiddleware, allow_origins=_settings.public_origins, allow_methods=["POST"],
                    allow_headers=["content-type"], allow_credentials=False)
