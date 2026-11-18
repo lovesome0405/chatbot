@@ -118,16 +118,24 @@ def full_eval(engine, qs) -> dict:
             "quote_misses": sum(p.get("quote_misses", 0) or 0 for p in doc_parts),
             "value_mismatches": sum(p.get("value_mismatches", 0) or 0 for p in doc_parts),
             "dropped": [d for p in doc_parts for d in p.get("dropped", [])],
+            "raw_outputs": [p.get("raw_output") for p in doc_parts if p.get("raw_output")],
+            "evidence_ids": [p.get("evidence_ids") for p in doc_parts if p.get("evidence_ids")],
             "answer": res.answer, "citations": [{"source_id": c.source_id, "quote": c.quote, "note": c.note,
                                                   "locator": c.locator} for c in res.citations],
         }
         results.append(r)
         if res.status in ("answered", "partial"):
             for line in res.answer.splitlines():
-                review.append({"id": q["id"], "question": q["question"], "claim": line,
-                               "quotes": " || ".join(f"{c.source_id} [{c.locator}] {c.quote}" for c in res.citations if not c.note),
-                               "gold_locator": q.get("gold_locator", ""), "auto_key_facts_ok": facts_ok,
-                               "human_supports_claim(Y/N)": "", "human_note": ""})
+                refs = [res.citations[int(n) - 1] for n in re.findall(r"\[(\d+)\]", line) if 0 < int(n) <= len(res.citations)]
+                if not refs or all(c.note for c in refs):
+                    continue  # 보류 안내 줄(관련 원문만 있음)은 검토 대상 아님
+                review.append({"id": q["id"], "question": q["question"], "language": q["language"],
+                               "generated_by": "model" if r["model_calls"] and not line.startswith(("(서버 확인)", "- ")) else "server_template",
+                               "claim": line,
+                               "cited_quotes(this claim only)": " || ".join(f"{c.source_id} [{c.locator}] {c.quote}" for c in refs),
+                               "gold_locator": q.get("gold_locator", ""), "key_facts": "; ".join(q["key_facts"]),
+                               "auto_key_facts_ok": facts_ok,
+                               "human_supports_claim(Y/N)": "", "human_complete(Y/N)": "", "human_note": ""})
 
     def rate(xs):
         xs = list(xs)

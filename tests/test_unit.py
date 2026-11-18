@@ -110,4 +110,36 @@ def test_claim_that_echoes_question_is_dropped():
     v = verify([{"text": "성적우수장학금은 신입생도 1학기에 받을 수 있어?", "citations": [{"id": "E1", "quote": "신입생은 2학기부터 적용"}]},
                 {"text": "신입생은 2학기부터 적용돼.", "citations": [{"id": "E1", "quote": "신입생은 2학기부터 적용"}]}], evs, question=q)
     assert [c[0] for c in v.claims] == ["신입생은 2학기부터 적용돼."]
-    assert {"reason": "echoes_question"} in v.dropped
+    assert any(d["reason"] == "echoes_question" for d in v.dropped)
+
+
+def test_real_royal_notice_replaces_synthetic_only_after_review(tmp_path):
+    import json
+    import shutil
+
+    from adapters.maru.adapter import MaruAdapter
+
+    d = tmp_path / "maru"
+    shutil.copytree("data/maru", d)
+    (d / "royal_notices").mkdir(exist_ok=True)
+    rec = {"source_id": "royal:1", "title": "실제 공지", "body": "개방 기간 2026. 9. 1. ~ 2026. 10. 31.", "url": "https://example.invalid/n",
+           "published_at": "2026-08-30", "valid_from": "2026-09-01", "valid_to": "2026-10-31",
+           "replaces_synthetic": "synthetic:royal-gbg-special-opening", "needs_review": True, "checked_at": "2026-11-18T00:00:00+00:00"}
+    (d / "royal_notices" / "1.json").write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
+    ids = {x.source_id: x for x in MaruAdapter(d).load().documents}
+    assert "royal:1" not in ids and "synthetic:royal-gbg-special-opening" in ids   # 검토 전: 적재 안 함
+    rec["needs_review"] = False
+    (d / "royal_notices" / "1.json").write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
+    ids = {x.source_id: x for x in MaruAdapter(d).load().documents}
+    assert ids["royal:1"].source_type == "public_original" and "synthetic:royal-gbg-special-opening" not in ids
+
+
+def test_quote_normalization_is_punctuation_only():
+    src = "전통시장 미식 코스: 서울 사람들의 일상 속 전통을 체험하는 코스입니다."
+    assert quote_in_source("서울 사람들의 일상 속 전통을 체험하는 코스입니다。", src)      # 전각 마침표
+    assert quote_in_source("체험하는 코스입니다", src)                                     # 끝 문장부호 생략
+    assert not quote_in_source("서울 시민의 일상 속 전통을 체험하는 코스입니다.", src)       # 내용이 다르면 거부
+    ev = _ev("E1", src)
+    ev.locator = "전통시장 미식 코스 > 문단 1"
+    v = verify([{"text": "시장 코스", "citations": [{"id": "E1", "quote": "'전통시장 미식 코스 > 문단 1': 체험하는 코스입니다"}]}], [ev])
+    assert len(v.claims) == 1 and v.quote_misses == 0
