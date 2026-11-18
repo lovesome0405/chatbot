@@ -9,13 +9,18 @@
 //   장애(kind === 'unavailable')일 때만 기존 fallbackAriReply()를 쓰되, 앞에 "로컬 안내(근거 검색 답변 아님)"를 붙인다.
 //
 // 기존 추천 순서 보존: context.ranking.topRoutes / topPlaces 의 ID 순서를 그대로 넘긴다(서버는 허용된 ID만 받고 순서를 바꾸지 않음).
+//
+// 장소 후속 질문("여기는 어떤 곳이야?"): Ari의 buildAriContext()에는 선택한 장소 값이 없다(코스만 selectedRoute).
+// 지도·문화자료 카드에서 장소를 고를 때 그 카드의 resource.id 를 호출하는 쪽이 기억했다가
+//   askAriRag(message, buildAriContext(), { placeId: lastSelectedResourceId })
+// 처럼 명시적으로 넘긴다. 서버는 허용된 장소 ID만 받고, '여기/이곳' 질문을 그 장소 근거로만 답한다.
 
 const MARU_RAG_URL = (typeof window !== 'undefined' && window.MARU_RAG_URL) || 'http://127.0.0.1:8088/v1/public/chat';
 
-export function toRagContext(ariContext) {
+export function toRagContext(ariContext, placeId) {
   return {
     course_id: ariContext?.selectedRoute?.id || undefined,
-    place_id: ariContext?.selectedPlaceId || undefined,
+    place_id: placeId || undefined,
     ranked_route_ids: (ariContext?.ranking?.topRoutes || []).map((r) => r.id),
     ranked_place_ids: (ariContext?.ranking?.topPlaces || []).map((p) => p.id),
   };
@@ -31,7 +36,7 @@ export function renderRagAnswer(data) {
   return lines.join('\n');
 }
 
-export async function askAriRag(message, ariContext, { fetchImpl = fetch, timeoutMs = 120000 } = {}) {
+export async function askAriRag(message, ariContext, { placeId, fetchImpl = fetch, timeoutMs = 120000 } = {}) {
   const language = ariContext?.language === 'ko' ? 'ko' : (ariContext?.language ? 'en' : undefined);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -39,7 +44,7 @@ export async function askAriRag(message, ariContext, { fetchImpl = fetch, timeou
     const res = await fetchImpl(MARU_RAG_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: String(message).slice(0, 500), language, context: toRagContext(ariContext) }),
+      body: JSON.stringify({ question: String(message).slice(0, 500), language, context: toRagContext(ariContext, placeId) }),
       signal: ctrl.signal,
     });
     if (!res.ok) return { kind: 'unavailable', status: res.status };

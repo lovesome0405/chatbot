@@ -1,0 +1,22 @@
+{
+  "source_id": "royal:20260830151817711582",
+  "collection": "notices",
+  "title": "경복궁 근정전 월대 출입 제한 안내(2026.9.2.(수)~10.31.(토))",
+  "body": "경복궁 근정전 월대 출입 제한 안내(2026.9.2.(수)~10.31.(토))\n\n성수기 많은 관람객으로 인한 근정전 돌난간 등 석조물의 손상이 우려되어 2026년 9월 2일(수)부터 2026년 10월 31일(토)까지 근정전 월대 출입을 제한합니다.",
+  "url": "https://royal.khs.go.kr/ROYAL/contents/R403000000.do?id=20260830151817711582&schBdcode=gbg&schM=view",
+  "published_at": "2026-08-30",
+  "valid_from": "2026-09-02",
+  "valid_to": "2026-10-31",
+  "replaces_synthetic": "synthetic:royal-gbg-special-opening",
+  "needs_review": false,
+  "checked_at": "2026-11-18T00:00:00+09:00",
+  "provenance": "주상 PC에서 scripts/fetch_royal_notice.py v0.2.1 실행(2026-11-18) 출력의 날짜 문맥에서 원문 문장만 옮김. 페이지 마크업 때문에 생긴 글자 사이 공백만 정리했고 문장은 추가하지 않음. 게시일은 목록의 '경복궁 5978 2026-08-30' 행 기준.",
+  "review": "적용 기간은 원문 문장 '2026년 9월 2일(수)부터 2026년 10월 31일(토)까지'에서 확인",
+  "action_type": "access_restricted",
+  "action_target": "근정전 월대",
+  "action_target_en": "the Geunjeongjeon terrace (woldae)",
+  "action_terms": [
+    "근정전",
+    "월대"
+  ]
+}

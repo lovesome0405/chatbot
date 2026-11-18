@@ -113,7 +113,11 @@ class Engine:
                      aliases=adapter.aliases, as_of=as_of, mode=mode, source_ids=part.source_ids,
                      collections=part.collections,
                      top_k=self.settings.keyword_top_n + self.settings.vector_top_n)  # 후보 전체 → 자격 필터 → 상위 final_top_k
-        rows = [x for x in r.rows if x.get("kw_rank") or (x.get("distance") is not None and 1 - x["distance"] >= self.min_sim)]
+        if part.source_ids:
+            # 앱이 명시적으로 넘긴 장소·코스 범위: 사용자가 대상을 이미 골랐으므로 관련성 관문을 적용하지 않는다
+            rows = list(r.rows)
+        else:
+            rows = [x for x in r.rows if x.get("kw_rank") or (x.get("distance") is not None and 1 - x["distance"] >= self.min_sim)]
         if part.keep_order:
             pos = {sid: i for i, sid in enumerate(part.keep_order)}
             rows.sort(key=lambda x: pos.get(x["source_id"], len(pos)))
@@ -154,40 +158,47 @@ class Engine:
                               related=[citation_from(e, e.text[:160], "검색 결과(생성 실패)") for e in body],
                               model_calls=1, debug=dbg)
         checked = citecheck.verify(gen.claims, body, question=part.text)
-        if part.time_sensitive:
-            checked.claims = self._drop_period_contradictions(checked, as_of)
         dbg |= {"gen_ms": round(gen.latency_ms, 1), "abstain": gen.abstain, "dropped": checked.dropped,
                 "unknown_ids": checked.unknown_ids, "quote_misses": checked.quote_misses,
                 "value_mismatches": checked.value_mismatches, "raw_claims": len(gen.claims),
                 "raw_output": gen.raw[:2000] if gen.raw else None, "evidence_ids": [(e.eid, e.source_id, e.locator) for e in body]}
-        if not checked.claims:
+        action = self._action_claims(adapter, part, body, as_of, lang) if part.time_sensitive else []
+        if not checked.claims and not action:
             rel = [citation_from(e, e.text[:120], "관련 원문(답변 근거 아님)") for e in body[:3]]
             return PartResult("insufficient_evidence", message=msg("insufficient", lang), related=rel, model_calls=1,
                               debug=dbg)
-        claims = [Claim(text, [citation_from(ev, quote) for ev, quote in good]) for text, good in checked.claims]
+        claims = action + [Claim(text, [citation_from(ev, quote) for ev, quote in good]) for text, good in checked.claims]
         if part.time_sensitive:
-            claims += self._period_notes(checked, as_of, lang)
+            claims += self._period_notes(checked, as_of, lang, skip={c.citations[0].source_id for c in action})
         return PartResult("answered", claims=claims, model_calls=1, debug=dbg)
 
-    NEGATION = ["않", "없", "종료", "닫", "끝났", "not ", "n't", "closed", "no longer", "ended", "over"]
-
-    def _drop_period_contradictions(self, checked, as_of):
-        """기준일이 인용 근거의 적용 기간 안인데 주장이 부정(닫힘·종료)이면 모순으로 보고 버린다(휴리스틱, 평가로 점검)."""
-        kept = []
-        for text, good in checked.claims:
-            in_period = any(ev.valid_from and ev.valid_to and ev.valid_from <= as_of <= ev.valid_to for ev, _ in good)
-            if in_period and any(n in text.lower() for n in self.NEGATION):
-                checked.dropped.append({"reason": "contradicts_valid_period", "claim": text[:200]})
+    def _action_claims(self, adapter, part: Part, body: list[Evidence], as_of, lang) -> list[Claim]:
+        """공지의 조치 유형과 적용 기간으로 상태를 코드가 판정한다(모델 판단에 맡기지 않음).
+        질문이 공지의 대상(action_terms, 별칭 확장 포함)을 가리킬 때만 붙인다. SQL에서 기간이 맞는 근거만 남아 있다."""
+        q = set(textnorm.expand_query(part.text, adapter.aliases))
+        out = []
+        for ev in body:
+            md = ev.metadata or {}
+            if md.get("action_type") != "access_restricted" or not (ev.valid_from and ev.valid_to):
                 continue
-            kept.append((text, good))
-        return kept
+            if not q & {t for term in md.get("action_terms", []) for t in textnorm.tokens(term)}:
+                continue
+            if lang == "ko":
+                txt = (f"공지 기준으로 {md['action_target']}은 {ev.valid_from}부터 {ev.valid_to}까지 출입이 제한돼요. "
+                       f"기준일 {as_of}은 이 기간 안이라 지금은 올라갈 수 없어요.")
+            else:
+                txt = (f"According to the official notice, access to {md.get('action_target_en', md['action_target'])} is restricted "
+                       f"from {ev.valid_from} to {ev.valid_to}. The reference date {as_of} is within this period, so you can't go up now.")
+            out.append(Claim(txt, [citation_from(ev, ev.text, "조치 유형·적용 기간(서버 판정)")]))
+            break
+        return out
 
-    def _period_notes(self, checked, as_of, lang) -> list[Claim]:
+    def _period_notes(self, checked, as_of, lang, skip=frozenset()) -> list[Claim]:
         """적용 기간과 기준일 비교는 모델이 아니라 서버가 메타데이터로 계산해 덧붙인다."""
         out, seen = [], set()
         for _, good in checked.claims:
             for ev, _q in good:
-                if (ev.valid_from or ev.valid_to) and ev.source_id not in seen:
+                if (ev.valid_from or ev.valid_to) and ev.source_id not in seen and ev.source_id not in skip:
                     seen.add(ev.source_id)
                     txt = (f"(서버 확인) 근거 적용 기간 {ev.valid_from}~{ev.valid_to}, 기준일 {as_of}은 이 기간 안이야."
                            if lang == "ko" else

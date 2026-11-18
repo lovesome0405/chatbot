@@ -121,7 +121,8 @@ def test_real_royal_notice_replaces_synthetic_only_after_review(tmp_path):
 
     d = tmp_path / "maru"
     shutil.copytree("data/maru", d)
-    (d / "royal_notices").mkdir(exist_ok=True)
+    shutil.rmtree(d / "royal_notices", ignore_errors=True)  # 저장소의 실제 공지와 분리해 검토 전 상태를 재현
+    (d / "royal_notices").mkdir()
     rec = {"source_id": "royal:1", "title": "실제 공지", "body": "개방 기간 2026. 9. 1. ~ 2026. 10. 31.", "url": "https://example.invalid/n",
            "published_at": "2026-08-30", "valid_from": "2026-09-01", "valid_to": "2026-10-31",
            "replaces_synthetic": "synthetic:royal-gbg-special-opening", "needs_review": True, "checked_at": "2026-11-18T00:00:00+00:00"}
@@ -143,3 +144,38 @@ def test_quote_normalization_is_punctuation_only():
     ev.locator = "전통시장 미식 코스 > 문단 1"
     v = verify([{"text": "시장 코스", "citations": [{"id": "E1", "quote": "'전통시장 미식 코스 > 문단 1': 체험하는 코스입니다"}]}], [ev])
     assert len(v.claims) == 1 and v.quote_misses == 0
+
+
+
+def test_negative_claim_kept_for_restriction_notice_in_period():
+    """출입 제한 공지 기간 안에 '올라갈 수 없다'는 정답이다. 공지를 '개방'으로 가정해 부정문을 버리면 안 된다."""
+    from datetime import date
+
+    from ragcore.engine import Engine
+
+    assert not hasattr(Engine, "_drop_period_contradictions")  # 극성 가정 규칙 제거(v0.2.2)
+    ev = _ev("E1", "2026년 9월 2일(수)부터 2026년 10월 31일(토)까지 근정전 월대 출입을 제한합니다.")
+    ev.valid_from, ev.valid_to = date(2026, 9, 2), date(2026, 10, 31)
+    v = verify([{"text": "지금은 근정전 월대에 올라갈 수 없어요.", "citations": [{"id": "E1", "quote": "근정전 월대 출입을 제한합니다"}]}], [ev])
+    assert [t for t, _ in v.claims] == ["지금은 근정전 월대에 올라갈 수 없어요."]
+
+
+def test_korean_and_iso_dates_match_in_value_check():
+    ev = _ev("E1", "2026년 9월 2일(수)부터 2026년 10월 31일(토)까지 근정전 월대 출입을 제한합니다.")
+    ok = verify([{"text": "2026-10-31까지 올라갈 수 없어요.", "citations": [{"id": "E1", "quote": "근정전 월대 출입을 제한합니다"}]}], [ev])
+    bad = verify([{"text": "2026-11-30까지 올라갈 수 없어요.", "citations": [{"id": "E1", "quote": "근정전 월대 출입을 제한합니다"}]}], [ev])
+    assert len(ok.claims) == 1 and len(bad.claims) == 0 and bad.value_mismatches == 1
+
+
+def test_royal_notice_extract_uses_board_detail_classes():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("fetch_royal", "scripts/fetch_royal_notice.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    x = mod.extract(open("tests/fixtures/royal_notice_structure_mock.html", encoding="utf-8").read())
+    assert x["method"] == "board_detail" and x["title"] == "시험용 공지 제목"
+    assert x["published_at"] == "2026-08-30"
+    assert "통합검색" not in x["body"] and "관람시간" not in x["body"] and "개인정보" not in x["body"]  # 메뉴·하단 제외
+    assert "안쪽 문단도 포함" in x["body"] and "시험용 문장 석조물의손상이우려되어" in x["body"]  # 중첩, 글자 공백만 정리
+    assert [d["date"] for d in x["date_candidates"]] == ["2026-09-02", "2026-10-31"]

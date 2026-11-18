@@ -23,8 +23,8 @@ STEPS = [
      "'학과수석 입학자' 행과 '직전학기 성적우수자' 행이 섞이지 않는지 locator로 확인"),
     ("3. 같은 서버, MARU 키로 영어 문화 질문 (한국어 원문 검색)", "maru", "Tell me about Jongmyo Shrine", "en", None,
      "영어 질문 → 한국어 근거 검색 → 영어 답변, 지명·출처 링크 보존"),
-    ("4. 기간이 끝난 공지 → 답변 보류", "maru", "Is the Gyeongbokgung special opening open now?", "en", "2026-11-17T12:00:00",
-     "공지(합성)의 적용 기간 2026-09-01~10-31이 지났으므로 현재 개방 여부를 확정하지 않는다"),
+    ("4. 기간이 끝난 공지 → 답변 보류", "maru", "Can I walk up onto the Geunjeongjeon terrace at Gyeongbokgung right now?", "en", "2026-11-17T12:00:00",
+     "실제 공지(근정전 월대 출입 제한)의 적용 기간 2026-09-02~10-31이 지났으므로 현재 출입 가능 여부를 확정하지 않는다"),
 ]
 
 
@@ -57,7 +57,7 @@ def main():
     k = keys()
     health = json.loads(urllib.request.urlopen(f"{a.api}/health", timeout=10).read())
     print(f"서버: embedder={health['embedder']} generator={health['generator']} db={health['db']}")
-    print("데이터 표시: 장학표=실제 공개 원문 / 식단·공지·MARU 장소=저장소 데이터 / 경복궁 특별 개방 공지=합성 데이터\n")
+    print("데이터 표시: 장학표=실제 공개 원문 / 식단·공지·MARU 장소=저장소 데이터 / 경복궁 근정전 월대 공지=실제 공개 원문(주상 PC 수집) / MARU 식사시간=합성 데이터\n")
     for title, project, q, lang, ref, note in STEPS:
         body = {"question": q, "language": lang}
         if ref:
