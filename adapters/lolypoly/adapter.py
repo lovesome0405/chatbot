@@ -45,7 +45,7 @@ class LolypolyAdapter(Adapter):
     structured_keys = {"meals": {"date", "meal_type"}}
     fresh_days = 30
     persona = ("You are the campus guide of 롤리폴리, a student app for 한국폴리텍대학 춘천캠퍼스. "
-               "Talk like a kind senior student: short, clear and friendly (Korean: polite 해요체).")  # 운영시간처럼 시점이 중요한 값: 확인 시각이 30일 이내인 근거만
+               "Talk like a kind senior student: short, clear and friendly.")  # 운영시간처럼 시점이 중요한 값: 확인 시각이 30일 이내인 근거만
     aliases = {
         "학식": ["식단", "메뉴"], "점심": ["중식"], "저녁": ["석식"], "아침": ["조식"],
         "장학": ["장학금"], "scholarship": ["장학금", "장학"], "scholarships": ["장학금", "장학"],

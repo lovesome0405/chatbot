@@ -106,6 +106,17 @@ def enrich_echo(text: str, quote: str, lang: str) -> str:
     return f"{text.rstrip()} 자료에는 “{q}”라고 나와 있어요." if lang == "ko" else f'{text.rstrip()} The source says: "{q}".'
 
 
+_NON_ANSWER = re.compile(
+    r"알려지지 않|알려주지 못|알려드릴 수 없|알 수 없|찾을 수 없|찾지 못|나와 있지 않|언급되지 않|언급이 없|언급하지 않|정보가 없|자료가 없|"
+    r"not mention|no information|not available in|can(?:no|')t find|could not find|couldn't find|not provided|"
+    r"does(?: not|n't) (?:say|specify|include)|not specified|i don't know|unknown", re.I)
+
+
+def is_non_answer(text: str) -> bool:
+    """'모른다·언급 없음' 문장은 근거 기반 주장이 아니다(보류로 처리)."""
+    return bool(_NON_ANSWER.search(text or ""))
+
+
 def _echoes_question(text: str, question: str | None) -> bool:
     """질문을 그대로 베낀 의문문(물음표로 끝남)은 사실 주장이 아니므로 버린다.
     긍정문 되풀이("~할 수 있어요")는 근거와 맞는 답일 수 있어 버리지 않고 echo_claims 로 표시한다(v0.3.0)."""
@@ -117,6 +128,9 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
     out = Verified()
     for claim in claims:
         text = str(claim.get("text", "")).strip()
+        if is_non_answer(text):
+            out.dropped.append({"reason": "non_answer", "claim": text[:200]})
+            continue
         if _echoes_question(text, question):
             out.dropped.append({"reason": "echoes_question", "claim": text[:200]})
             continue

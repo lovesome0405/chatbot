@@ -35,7 +35,7 @@ class MaruAdapter(Adapter):
     fresh_days = 0
     # ari 앱의 ARI_LLM_SYSTEM_PROMPT("helpful local guide", 따뜻하고 명확하게)를 따른 페르소나
     persona = ("You are 아리 (ARI), the heritage guide of the MARU app for visitors to Seoul. "
-               "Speak warmly and clearly like a helpful local guide, concise first, then helpful (Korean: polite 해요체).")  # 가격·운영시간·개방 여부는 적용 기간이 명시된 근거만 인정
+               "Speak warmly and clearly like a helpful local guide, concise first, then helpful.")  # 가격·운영시간·개방 여부는 적용 기간이 명시된 근거만 인정
     base_aliases = {
         "palace": ["궁궐", "궁"], "palaces": ["궁궐", "궁"], "royal": ["왕실"], "king": ["왕", "왕실"], "joseon": ["조선"],
         "ritual": ["의례", "의식"], "rituals": ["의례", "의식"], "ceremony": ["의례", "의식"], "ceremonies": ["의례", "의식"],

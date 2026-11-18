@@ -213,3 +213,23 @@ def test_affirmative_echo_kept_and_enriched_with_quote():
     assert len(v.claims) == 1 and v.echo_claims == {0}
     text = enrich_echo(v.claims[0][0], v.claims[0][1][0][1], "ko")
     assert text.startswith("인사동에서 전통공예를 볼 수 있어요.") and "찻집, 갤러리" in text
+
+
+def test_non_answer_claims_are_dropped():
+    """'알려지지 않았어요'·'not mentioned' 같은 문장은 답이 아니다: 버리고 보류로 처리한다."""
+    ev = _ev("E1", "학사일정 성적열람 및 이의신청 | 과정: P-TECH | 기간: 2026-01-15 ~ 2026-01-16")
+    for text in ("기숙사 신청 기간은 알려지지 않았어요.", "그 일정은 알려주지 못해요.", "자료에 언급되지 않았어요.",
+                 "The evidence does not mention a dormitory.", "No information is available about that."):
+        v = verify([{"text": text, "citations": [{"id": "E1", "quote": "성적열람 및 이의신청"}]}], [ev])
+        assert v.claims == [] and v.dropped[-1]["reason"] == "non_answer", text
+    ok = verify([{"text": "성적열람 및 이의신청은 2026-01-15부터예요.", "citations": [{"id": "E1", "quote": "성적열람 및 이의신청"}]}], [ev])
+    assert len(ok.claims) == 1
+
+
+def test_prompt_is_language_specific():
+    from ragcore.generation import build_messages
+
+    en = build_messages("Can I go?", "en", [], "2026-11-18", "")[0]["content"]
+    ko = build_messages("가도 돼?", "ko", [], "2026-11-18", "")[0]["content"]
+    assert "해요" not in en and "예요" not in en and "Answer in English" in en
+    assert "해요체" in ko
