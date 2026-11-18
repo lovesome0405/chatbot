@@ -26,7 +26,7 @@ src/ragcore/  config · models · textnorm(한글 정규화) · chunking · embe
               ingest(멱등 적재) · retrieval(키워드/벡터/RRF) · adapter(계약) · generation(fake/Ollama) · citations(검증)
               engine(라우팅·보류·결합) · api(FastAPI) · cli · registry
 adapters/     lolypoly/ · maru/(+ ari_baseline: 기존 scoreAriTextMatch 이식)
-data/         원본 사본(유형 위 표)        eval/  questions.jsonl(37문항) · run_eval.py
+data/         원본 사본(유형 위 표)        eval/  questions.jsonl(63문항) · run_eval.py
 examples/     django_lolypoly/ · ari_maru/ · maru-static/      reports/  평가·시연 기록
 ```
 처리 흐름: 질문 → 어댑터 규칙으로 **정형 조회 / 문서 검색 / 복합 / 되묻기** 라우팅 → (문서) 범위·공개·적용 기간 필터 후 키워드와 벡터를 독립 실행, 각 상위 10을 RRF(1/(60+순위))로 결합 → 자격 필터(제목만·시점) → 상위 4조각만 모델에 전달 → 모델이 주장별 인용 ID·발췌를 JSON으로 반환 → 서버가 ID·발췌 원문 포함·날짜/숫자 대조·질문 되풀이·기간 모순을 검사해 통과한 주장만 답변 → URL·제목은 서버가 원본 메타데이터로 채움.
@@ -72,8 +72,8 @@ export PYTHONPATH=src:.
 | `examples/ari_maru/ari-rag-bridge.js` | node에서 Ari `buildAriContext()` 모양의 객체로 호출. `ranking.topRoutes` 순서가 응답 인용 순서에 그대로 유지됨 | ari `app.js`는 수정하지 않았다. 장애 시 `fallbackAriReply`는 "로컬 안내(근거 검색 답변 아님)" 표시를 붙여 쓰도록 안내만 했다 |
 | `examples/maru-static/index.html` | Playwright로 390px 화면에서 실제 호출·렌더링, 가로 넘침 없음 (`reports/maru-static-demo.png`) | 공개 중계 엔드포인트만 쓴다. 공개 배포 시 HTTPS·도메인·남용 방지 정책이 따로 필요하다 |
 
-## 테스트 (2026-11-17 실행)
-`pytest -q` → **33 passed** (단위 12 + 실제 PostgreSQL/pgvector 통합 21, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트가 통과했다.
+## 테스트 (2026-11-18 v0.3.0 실행)
+`pytest -q` → **45 passed** (단위 22 + 실제 PostgreSQL/pgvector 통합 23, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트를 돌린다.
 판정 가능한 필수 조건은 모두 자동 테스트로 확인했다:
 
 | 필수 조건 | 테스트 |
@@ -88,7 +88,7 @@ export PYTHONPATH=src:.
 
 뮤테이션 점검: 기간 필터를 제거하면 2개 테스트, 인용 ID 검사를 제거하면 2개 테스트가 실패하는 것을 확인했다(원복 후 다시 전부 통과). fake 테스트 통과는 제어 흐름 검증일 뿐이고, 검색 품질 수치가 아니다.
 
-## 평가 (실제 e5 + 실제 pgvector + 실제 qwen2.5:3b)
+## 평가 (실제 e5 + 실제 pgvector + 실제 Ollama). 최신 수치는 아래 v0.3.0 표
 상세: [reports/EVAL.md](reports/EVAL.md). 원본 JSON과 사람 검토 시트(`*.review.csv`)도 같은 폴더에 있다.
 
 검색 비교(같은 자료·같은 질문, 원본 ID 기준, 상위 3개). 대상은 기대 출처가 있는 문서 질문 21개야.
@@ -102,7 +102,7 @@ export PYTHONPATH=src:.
 
 장학표의 기대 행이 상위 3조각 안에 든 비율은 키워드 5/5, 벡터 4/5, RRF 5/5야.
 
-전체 응답(37문항: 롤리폴리 19, MARU 17, 도서관 1. 최종 코드로 run5 실행):
+초기 전체 응답(v0.1, 37문항: 롤리폴리 19, MARU 17, 도서관 1. qwen2.5:3b run5. 기록용):
 
 | 지표 | 결과 |
 |---|---|
@@ -124,10 +124,22 @@ export PYTHONPATH=src:.
 7B는 3B보다 상태 일치(53 vs 48/63), 과잉 보류(10 vs 15/48), 영어 답변(8/8)이 나았다. 대신 지연이 약 2배다(평균 44초).
 두 모델 모두 자동 검증을 통과한 의미 오류가 있다. 요약은 [reports/v2/SUMMARY.md](reports/v2/SUMMARY.md), 사람 검토 시트는 [reports/v2/HUMAN-REVIEW.csv](reports/v2/HUMAN-REVIEW.csv)에 있다.
 
+### v0.3.0 (63문항, 말투·되풀이 개선)
+| 지표 | v0.2 3B | v0.2 7B | v0.3.0 3B | v0.3.0 7B |
+|---|---|---|---|---|
+| 상태 일치 | 48/63 | 53/63 | **55/63** | 53/63 |
+| 답할 수 있는데 보류 | 15/48 | 10/48 | **8/48** | 10/48 |
+| 영어 질문 → 영어 답 | 5/6 | 8/8 | 9/9 | 9/9 |
+| 질문 복사 주장 | - | - | 0/36 | 0/30 |
+| 노출·없는 ID·만료 공지 세부 답 | 0·0·0 | 0·0·0 | 0·0·0 | 0·0·0 |
+| 지연 평균 (초) | 22.3 | 44.3 | 28.7 | 51.8 |
+
+v0.3.0에서 3B가 7B와 비슷해졌다. 상태 일치는 3B가 높고, 7B는 의미 오류가 적다(아래 한계). 해요체 비율은 약 17%로 낮다(모델이 지시해도 "~습니다"를 주로 씀). 수치는 전체 실행 결과에 마지막 되풀이 검증 수정을 재생 평가(`scripts/replay_eval.py`, 저장된 모델 출력 재사용, 모델 호출 없음)로 반영한 것이다. 상세: [reports/v0.3.0/COMPARE.md](reports/v0.3.0/COMPARE.md), 변경 내용: [CHANGELOG.md](CHANGELOG.md).
+
 ## 3분 시연 순서 (`scripts/demo.py`, 기록: `reports/demo-transcript.txt`)
 1. **오늘 점심** (롤리폴리 키, 기준 2026-11-10): 정형 조회로 중식 레코드를 그대로 반환. 모델 호출 0회. 출처 유형 "저장소 데이터"
 2. **장학표 한 행 인용**: "학과수석 입학자는 장학금 얼마나 받아?" → `장학제도 표 > 행 2` 인용, 1년간 교육비 전액면제. 출처 유형 "실제 공개 원문"
-3. **같은 서버로 영어 문화 질문** (MARU 키): "Tell me about Jongmyo Shrine" → 한국어 원문 근거와 출처 링크. ⚠ 3B 모델이 이 질문에 한국어로 답했다(아래 한계 참고)
+3. **같은 서버로 영어 문화 질문** (MARU 키): "Tell me about Jongmyo Shrine" → 한국어 원문 근거와 출처 링크. v0.3.0 평가에서는 영어 질문 9/9가 영어로 답했지만, 3B가 이 질문에 "Jungmu-gu"(실제 종로구)라는 틀린 위치를 붙인 적이 있다(아래 한계)
 4. **낡은 공지에 답변 보류** (기준 2026-11-17): 실제 공지 "경복궁 근정전 월대 출입 제한"(기간 2026-09-02~10-31)은 "기간 종료"로만 표시하고 지금 올라갈 수 있는지는 확정하지 않음
 
 화면 첫 줄에 데이터 유형(실제 원문/저장소/합성)을 표시한다.
@@ -135,15 +147,15 @@ export PYTHONPATH=src:.
 ## 한계와 미실행 항목
 | 항목 | 상태 | 원인 / 재현 |
 |---|---|---|
-| 국가유산청 궁능유적본부 공지 원문 | **미확인** → 합성 fixture로 대체 | 이 컨테이너에서 TLS 핸드셰이크 중 상대 서버가 연결을 끊음(프록시 CONNECT 200 후 `Connection reset by peer`, 재시도 TLS1.2/1.3 동일). 재현: `curl -v "https://royal.khs.go.kr/ROYAL/contents/R403000000.do?id=20260830151817711582&schBdcode=gbg&schM=view"` |
+| 국가유산청 궁능유적본부 공지 원문 | **해결(v0.2.2)** | 클라우드 컨테이너에서는 접속이 끊겨(TLS reset) 주상 PC에서 `scripts/fetch_royal_notice.py`로 수집. 실제 원본 HTML은 `tests/fixtures/`의 회귀 테스트로 보존 |
+| 사람 검토(인용의 의미 일치) | **일부(13/62)** | `reports/v2/HUMAN-REVIEW.csv`. 지지 판정 Claude 1차와 11/13 일치. 나머지는 Claude 판단만 있어 "사람 미검토" |
+| 자동 검증을 통과하는 의미 오류 | 남음(줄어듦) | 인용 문구가 원문 그대로여도 주장 의미가 틀릴 수 있다. v0.3.0에서 한국어 되풀이 주장은 질문 단어가 근거에 있는지 확인해 7B L09("신입생도 1학기에", 근거는 "2학기부터")·3B N12(근거 없는 "주말 축제")를 걸러 낸다. 남은 예: 3B M14 "Jungmu-gu", 3B 영어 되풀이 N19·N02. 서버 검증은 ID·발췌·날짜·숫자·질문 단어만 대조한다 |
+| 친숙한 말투 | 일부 | 서버 문구는 해요체다. 모델 주장의 해요체는 약 17%(3B 4/26, 7B 4/22) |
+| 작은 모델(3B)의 지시 이행 | 남음 | 질문을 해요체 의문문으로 되풀이하는 경우가 있어 서버가 폐기 → 보류. 7B는 덜함 |
 | 기존 Ari `fallbackAriReply`/`askAri` 응답 비교 | 미실행 | 브라우저 DOM·i18n·localStorage 의존이라 서버에서 그대로 실행하지 못함. 검색 단계(`scoreAriTextMatch`)만 이식해 app.js 원본과 700케이스 일치 확인 후 비교 |
-| 사람 검토(인용의 의미 일치) | 미실행 | 자동 검증은 ID·발췌 포함·값 대조만 보장. `reports/*.review.csv`의 사람 판정 칸이 비어 있음. Claude 1차 의견은 EVAL.md에 따로 표시(사람 검토 아님) |
-| 영어 질문 → 영어 답변 | 부분 실패 | 3B 모델이 한국어 원문을 그대로 답으로 옮기는 경우가 있음(종묘 질문). 서버에서 막지 않고 지표로 기록 |
-| qwen2.5:7b 전체 평가 | 미실행 | 시간 제약(문항당 50~95초). 3문항 비교만 `reports/LLM-FORMAT.md` |
 | Supabase 별도 DB 연결 | 미실행 | 설정과 풀러 대응만 있음. 실제 프로젝트 생성·연결은 외부 서비스 변경이라 하지 않음. 재현: `.env`의 `DATABASE_URL` 교체 후 `python -m ragcore.cli ingest` |
-| GitHub Actions CI | 미실행 | 원격 저장소가 없어 `.github/workflows/ci.yml`은 초안. 같은 명령(`pytest -q`)은 로컬 pgvector로 통과 |
-| 운영 반영(LOLYPOLY·MARU 사이트) | 범위 밖 | 연결 예제와 로컬 호출만 확인. 운영 배포·원격 푸시는 별도 작업 |
-| Windows·학교 PC 실행 | 미검증 | 이 결과는 Linux 컨테이너(4 CPU) 기준 |
+| 실제 앱 연결(LOLYPOLY·MARU) | 다음 단계 | 연결 예제와 로컬 API 호출만 확인. 롤리폴리 식단 데이터는 2026-11-15까지라 최신 export·동기화가 필요 |
+| Windows 실행 | 일부 | 주상 Windows PC에서 수집기 실행·원본 재추출 확인. 엔진 전체 실행은 Linux 컨테이너(4 CPU) 기준 |
 | 원본 데이터 라이선스 | 확인 필요 | LOLYPOLY·ari 저장소에 LICENSE 없음. 로컬 데모용 사본이며 재배포 전 소유자 확인 |
 
-라우팅 규칙과 별칭 사전은 이번 평가 질문을 보며 만든 소규모 규칙이야. 새 질문 유형에서는 경로 정확도가 떨어질 수 있어. 평가셋 37문항도 작아서, 수치는 이 데이터 안에서의 관찰로만 읽어야 해.
+라우팅 규칙과 별칭 사전은 평가 질문을 보며 만든 소규모 규칙이야. 새 질문 유형에서는 경로 정확도가 떨어질 수 있어. 평가셋 63문항도 작아서, 수치는 이 데이터 안에서의 관찰로만 읽어야 해.

@@ -180,7 +180,7 @@ def test_bad_citation_ids_never_returned(engine):
 def test_composite_partial(engine):
     res = engine.chat("lolypoly", "내일 점심이랑 기숙사 신청 방법 알려줘", "ko", {}, ref("2026-11-13T12:00"))
     assert res.route == "composite" and res.status == "partial"
-    assert "간편식" in res.answer and "[일부 확인 불가]" in res.answer
+    assert "간편식" in res.answer and "[일부는 확인하지 못했어요]" in res.answer
 
 
 def test_unexpected_error_is_unavailable(engine, monkeypatch):
