@@ -41,7 +41,8 @@ class MaruAdapter(Adapter):
         "rain": ["비 오는 날", "우천", "실내"], "rainy": ["비 오는 날", "우천", "실내"], "indoor": ["실내"], "night": ["야간"],
         "evening": ["야간"], "walk": ["걷기", "산책"], "walking": ["걷기", "도보"], "photo": ["사진"], "tomb": ["왕릉", "무덤"],
         "tombs": ["왕릉", "고분"], "shrine": ["종묘", "사당"], "wall": ["성곽", "성벽"], "fortress": ["성곽"],
-        "gate": ["문"], "guard": ["수문장"], "changing of the guard": ["수문장 교대"], "special opening": ["특별 개방"],
+        "gate": ["문"], "guard": ["수문장"], "changing of the guard": ["수문장 교대"], "special opening": ["특별 개방"], "geunjeongjeon": ["근정전"], "terrace": ["월대"],
+        "woldae": ["월대"], "restricted": ["제한"], "restriction": ["제한"], "go up": ["출입"], "access": ["출입"],
         "opening": ["개방"], "performance": ["공연"], "traditional music": ["국악"], "independence": ["독립"],
         "prison": ["형무소"], "history": ["역사"], "folk": ["민속"], "village": ["마을"], "first visit": ["첫 방문"],
         "first time": ["첫 방문", "처음"], "의식": ["의례"], "궁": ["궁궐"], "식사시간": ["식사 시간", "점심 휴식"],
@@ -140,7 +141,8 @@ class MaruAdapter(Adapter):
                 url=n["url"], language="ko", content_level="body", source_type="public_original",
                 published_at=_d(n.get("published_at")), valid_from=_d(n.get("valid_from")), valid_to=_d(n.get("valid_to")),
                 checked_at=datetime.fromisoformat(n["checked_at"]) if n.get("checked_at") else None,
-                metadata={"place_id": "gyeongbokgung-palace", "fetched_by": "scripts/fetch_royal_notice.py"},
+                metadata={"place_id": "gyeongbokgung-palace", "fetched_by": "scripts/fetch_royal_notice.py"}
+                | {k: n[k] for k in ("action_type", "action_target", "action_target_en", "action_terms") if k in n},
                 chunks=[Chunk(f"p{i:02d}", f"{n['title']} > 문단 {i}", t) for i, t in enumerate(paras, start=1)],
             ))
         for f in sorted(self.dir.glob("synthetic_*.json")):
@@ -192,7 +194,10 @@ class MaruAdapter(Adapter):
             pid = ctx.get("place_id")
             named = any(n.lower() in low for n in self._names())
             if pid and not named:
-                return Part("document", text, "place_ref", source_ids=[f"place:{pid}"], time_sensitive=ts, needs_detail=detail)
+                r = self._places[pid]
+                hint = (f"{text} (여기 = {r['nameKo']} ({r.get('nameEn', '')}))" if lang == "ko"
+                        else f"{text} (here = {r.get('nameEn', '')} / {r['nameKo']})")
+                return Part("document", hint, "place_ref", source_ids=[f"place:{pid}"], time_sensitive=ts, needs_detail=detail)
             if not named:
                 q = "어느 장소를 말하는지 알려줄래?" if lang == "ko" else "Which place do you mean?"
                 return Part("clarify", text, "place_ref", clarify=q)

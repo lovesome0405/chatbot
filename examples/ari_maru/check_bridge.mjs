@@ -7,7 +7,13 @@ const ariContext = {
   selectedRoute: { id: 'palace-history-course' },
   ranking: { topRoutes: [{ id: 'night-traditional-culture-course' }, { id: 'palace-history-course' }], topPlaces: [] },
 };
-for (const q of ['추천 순위 알려줘', '오늘 점심 뭐야?']) {
-  const r = await askAriRag(q, ariContext);
-  console.log(JSON.stringify({ q, kind: r.kind, status: r.data?.status, sources: r.data?.citations?.map((c) => c.source_id) }));
+const cases = [
+  ['추천 순위 알려줘', undefined],
+  ['오늘 점심 뭐야?', undefined],
+  ['여기는 어떤 곳이야?', 'jongmyo-shrine'],   // 장소 카드에서 종묘를 고른 뒤의 후속 질문
+  ['여기는 어떤 곳이야?', undefined],           // 장소를 넘기지 않으면 되묻기
+];
+for (const [q, placeId] of cases) {
+  const r = await askAriRag(q, ariContext, { placeId });
+  console.log(JSON.stringify({ q, placeId, kind: r.kind, status: r.data?.status, sources: r.data?.citations?.map((c) => c.source_id) }));
 }

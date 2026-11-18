@@ -50,6 +50,18 @@ def key_values(text: str) -> list[str]:
     return vals
 
 
+_KO_DATE = re.compile(r"(\d{4})\s*(?:년|\.)\s*(\d{1,2})\s*(?:월|\.)\s*(\d{1,2})\s*일?")
+
+
+def iso_dates(text: str) -> list[str]:
+    """'2026년 10월 31일', '2026. 10. 31.', '2026.10.31' → '2026-10-31' (근거와 주장의 날짜 형식 차이를 흡수)."""
+    out = []
+    for y, m, d in _KO_DATE.findall(text or ""):
+        if 1 <= int(m) <= 12 and 1 <= int(d) <= 31:
+            out.append(f"{int(y):04d}-{int(m):02d}-{int(d):02d}")
+    return out
+
+
 _SEG = re.compile(r"\s*(?:\||…|\.\.\.)\s*")
 
 
@@ -118,7 +130,7 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
         if not text or not good:
             continue
         cited_text = _norm(" ".join(ev.text + " " + ev.title for ev, _ in good))
-        cited_vals = set(key_values(cited_text)) | set(_VALUES.findall(cited_text))
+        cited_vals = set(key_values(cited_text)) | set(_VALUES.findall(cited_text)) | set(iso_dates(cited_text))
         missing = [v for v in key_values(text) if v not in cited_vals and v not in cited_text]
         if missing:
             out.value_mismatches += 1

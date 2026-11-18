@@ -34,6 +34,19 @@ def text_of(fragment: str) -> str:
     return "\n".join(ln for ln in lines if ln)
 
 
+def _squash(line: str) -> str:
+    toks, out, run = line.split(" "), [], []
+    for t in toks + [""]:
+        if len(t) == 1 and re.match(r"[가-힣]", t):
+            run.append(t)
+            continue
+        out.extend(["".join(run)] if len(run) >= 2 else run)
+        run = []
+        if t:
+            out.append(t)
+    return " ".join(out)
+
+
 def balanced(raw: str, start: int, tag: str) -> str:
     """start 위치의 여는 태그부터 같은 이름의 닫는 태그까지(중첩 고려) 잘라낸다."""
     tag = tag.lower()
@@ -46,49 +59,84 @@ def balanced(raw: str, start: int, tag: str) -> str:
     return raw[start:start + 20000]
 
 
-def main() -> int:
-    url = sys.argv[1]
-    nid = urllib.parse.parse_qs(urllib.parse.urlparse(url).query).get("id", ["notice"])[0]
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (local RAG demo; manual fetch)"})
-    raw = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "replace")
-    OUT.mkdir(parents=True, exist_ok=True)
-    # 원본 전체를 보존(구조 확인·재추출용). 이 파일은 공개 페이지 HTML이다.
-    (OUT / f"{nid}.raw.html").write_text(f"<!-- 출처: {url} , {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC 수집 -->\n{raw}", encoding="utf-8")
+def extract(raw: str) -> dict:
+    """공지 상세 HTML → 제목·게시일·본문·날짜 문맥.
+    1순위: 궁능유적본부 상세 화면 클래스 board_detail_tit / board_detail_info / board_detail_txt
+    (주상 PC에 저장된 원본으로 확인된 구조). 없으면 이전 휴리스틱으로 대체한다."""
+    def by_class(cls: str) -> str | None:
+        m = re.search(rf'<(\w+)[^>]+class="[^"]*\b{cls}\b[^"]*"[^>]*>', raw, re.I)
+        return balanced(raw, m.start(), m.group(1)) if m else None
+
     page_title = text_of(re.search(r"<title>(.*?)</title>", raw, re.S | re.I).group(1)) if "<title" in raw.lower() else ""
-    # 공지 제목 후보: class 에 tit/subject/subj 가 들어간 요소의 짧은 텍스트
-    title_cands = []
-    for m in re.finditer(r'<(h\d|th|td|p|strong|span|div|dt|dd)[^>]+class="[^"]*(?:tit|subj)[^"]*"[^>]*>', raw, re.I):
-        t = text_of(balanced(raw, m.start(), m.group(1))).replace("\n", " ")
-        if 4 <= len(t) <= 150 and t not in title_cands and t != page_title:
-            title_cands.append(t)
-    title_cands.sort(key=len)
-    # 본문 후보: class 에 view/cont/board 가 들어간 div 를 중첩까지 따라가 자른 뒤 가장 긴 것
-    blocks = [balanced(raw, m.start(), "div") for m in re.finditer(r'<div[^>]+class="[^"]*(?:view|cont|board)[^"]*"[^>]*>', raw, re.I)]
-    body_html = max(blocks, key=lambda b: len(text_of(b))) if blocks else raw
-    body = text_of(body_html)
-    (OUT / f"{nid}.html").write_text(f"<!-- 출처: {url} -->\n{body_html}", encoding="utf-8")
+    tit, info, txt = by_class("board_detail_tit"), by_class("board_detail_info"), by_class("board_detail_txt")
+    method = "board_detail" if (tit and txt) else "heuristic"
+    if method == "board_detail":
+        title = text_of(tit).replace("\n", " ").strip()
+        title_cands = [title]
+        info_text = text_of(info) if info else ""
+        posted = [date(int(y), int(m), int(d)).isoformat() for y, m, d in re.findall(DATE, info_text)]
+        published_at = posted[0] if posted else None
+        body_html = txt
+        body = text_of(txt)
+    else:
+        title_cands = []
+        for m in re.finditer(r'<(h\d|th|td|p|strong|span|div|dt|dd)[^>]+class="[^"]*(?:tit|subj)[^"]*"[^>]*>', raw, re.I):
+            t = text_of(balanced(raw, m.start(), m.group(1))).replace("\n", " ")
+            if 4 <= len(t) <= 150 and t not in title_cands and t != page_title:
+                title_cands.append(t)
+        title_cands.sort(key=len)
+        title = title_cands[0] if title_cands else ""
+        info_text, published_at = "", None
+        blocks = [balanced(raw, m.start(), "div") for m in re.finditer(r'<div[^>]+class="[^"]*(?:view|cont|board)[^"]*"[^>]*>', raw, re.I)]
+        body_html = max(blocks, key=lambda b: len(text_of(b))) if blocks else raw
+        body = text_of(body_html)
+    # 마크업 때문에 글자마다 띄워진 구간(예: "석 조 물 의")은 붙인다. 원래 어절 경계는 자동으로 되살릴 수 없어
+    # "석조물의손상이…"처럼 붙으므로, 사람 검토 때 띄어쓰기를 고친다. 정상 어절("문장 석")은 건드리지 않는다.
+    body = "\n".join(_squash(line) for line in body.split("\n"))
     dates = []
     for m in re.finditer(DATE, body):
         try:
             d = date(int(m[1]), int(m[2]), int(m[3])).isoformat()
         except ValueError:
             continue
-        ctx = body[max(0, m.start() - 50): m.end() + 50].replace("\n", " ")
-        dates.append({"date": d, "context": ctx})
+        dates.append({"date": d, "context": body[max(0, m.start() - 50): m.end() + 50].replace("\n", " ")})
+    return {"method": method, "title": title, "title_candidates": title_cands[:6], "page_title": page_title,
+            "info": info_text, "published_at": published_at, "body": body, "body_html": body_html, "date_candidates": dates}
+
+
+def main() -> int:
+    ap_args = sys.argv[1:]
+    if not ap_args:
+        print("사용법: fetch_royal_notice.py <공지 URL> [--html 저장된원본.html]")
+        return 2
+    url = ap_args[0]
+    nid = urllib.parse.parse_qs(urllib.parse.urlparse(url).query).get("id", ["notice"])[0]
+    if "--html" in ap_args:  # 이미 저장한 원본으로 다시 추출(네트워크 없이 재현)
+        raw = Path(ap_args[ap_args.index("--html") + 1]).read_text(encoding="utf-8", errors="replace")
+    else:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (local RAG demo; manual fetch)"})
+        raw = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "replace")
+    OUT.mkdir(parents=True, exist_ok=True)
+    if "--html" not in ap_args:
+        (OUT / f"{nid}.raw.html").write_text(f"<!-- 출처: {url} , {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC 수집 -->\n{raw}", encoding="utf-8")
+    x = extract(raw)
+    (OUT / f"{nid}.html").write_text(f"<!-- 출처: {url} -->\n{x['body_html']}", encoding="utf-8")
     rec = {
-        "source_id": f"royal:{nid}", "collection": "notices",
-        "title": title_cands[0] if title_cands else "", "title_candidates": title_cands[:6], "page_title": page_title,
-        "body": body[:4000], "url": url,
-        # 날짜는 자동으로 채우지 않는다: date_candidates 의 문맥을 보고 사람이 정한다
-        "published_at": None, "valid_from": None, "valid_to": None, "date_candidates": dates,
+        "source_id": f"royal:{nid}", "collection": "notices", "title": x["title"], "title_candidates": x["title_candidates"],
+        "page_title": x["page_title"], "extraction": x["method"], "body": x["body"][:4000], "url": url,
+        # 게시일은 상세 정보 영역에서 읽고, 적용 기간은 사람이 date_candidates 문맥을 보고 정한다
+        "published_at": x["published_at"], "valid_from": None, "valid_to": None, "date_candidates": x["date_candidates"],
+        "action_type": None, "action_target": None, "action_terms": [],
         "replaces_synthetic": "synthetic:royal-gbg-special-opening", "needs_review": True,
         "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     (OUT / f"{nid}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("제목 후보:", *[f"  - {t}" for t in title_cands[:6]] or ["  (없음)"], sep="\n")
-    print(f"본문 글자 수: {len(body)}  (앞부분: {body[:120]!r})")
-    print("날짜 후보와 문맥:", *[f"  - {x['date']}: …{x['context']}…" for x in dates] or ["  (없음)"], sep="\n")
-    print(f"→ {OUT / (nid + '.json')} 에서 title·published_at·valid_from·valid_to 를 정하고 needs_review=false 로 바꾸세요.")
+    print(f"추출 방식: {x['method']}")
+    print(f"제목: {x['title']}")
+    print(f"게시일: {x['published_at']}  (정보 영역: {x['info'][:80]!r})")
+    print(f"본문 글자 수: {len(x['body'])}  (앞부분: {x['body'][:120]!r})")
+    print("날짜 후보와 문맥:", *[f"  - {d['date']}: …{d['context']}…" for d in x["date_candidates"]] or ["  (없음)"], sep="\n")
+    print(f"→ {OUT / (nid + '.json')} 에서 valid_from·valid_to·action_type(예: access_restricted)·action_target·action_terms 를 정하고 needs_review=false 로 바꾸세요.")
     return 0
 
 

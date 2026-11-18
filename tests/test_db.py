@@ -146,12 +146,13 @@ def test_title_only_notice_returns_link_not_details(engine):
 
 
 def test_expired_notice_not_used_for_answer(engine):
-    after = engine.chat("maru", "경복궁 특별 개방 지금 하고 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    after = engine.chat("maru", "경복궁 근정전 월대 지금 올라갈 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
     assert after.status == "insufficient_evidence"
-    exp = [c for c in after.citations if c.source_id == "synthetic:royal-gbg-special-opening"]
+    exp = [c for c in after.citations if c.source_id == "royal:20260830151817711582"]
     assert exp and all("기간 종료" in c.note for c in exp)
-    inside = engine.chat("maru", "경복궁 특별 개방 기간 지금 하고 있어?", "ko", {}, ref("2026-09-15T12:00"))
-    assert inside.status == "answered" and "synthetic:royal-gbg-special-opening" in sources(inside)
+    inside = engine.chat("maru", "경복궁 근정전 월대 출입 제한 기간 지금이야?", "ko", {}, ref("2026-09-15T12:00"))
+    assert inside.status == "answered" and "royal:20260830151817711582" in sources(inside)
+    assert "synthetic:royal-gbg-special-opening" not in {d["source_id"] for d in engine.store.documents("maru")}
     assert "기간 안" in inside.answer  # 서버가 메타데이터로 계산한 기간 확인 문장
 
 
@@ -219,3 +220,25 @@ def test_logs_exclude_question_text(engine, caplog):
     with caplog.at_level(logging.INFO, logger="ragcore.request"):
         engine.chat("lolypoly", "비밀스러운질문문장", "ko", {}, ref("2026-11-17T12:00"))
     assert caplog.records and "비밀스러운질문문장" not in caplog.text and "request_id" in caplog.text
+
+
+def test_access_restriction_status_decided_by_code(engine):
+    """공지의 조치 유형(access_restricted)과 적용 기간으로 출입 상태를 서버가 판정한다. 모델이 보류해도 답한다."""
+    engine.generator = FakeGenerator(min_overlap=999)  # 모델이 아무 주장도 내지 않는 상황
+    inside = engine.chat("maru", "경복궁 근정전 월대 지금 올라갈 수 있어?", "ko", {}, ref("2026-09-15T12:00"))
+    assert inside.status == "answered" and "royal:20260830151817711582" in sources(inside)
+    assert "출입이 제한" in inside.answer and "2026-10-31" in inside.answer
+    en = engine.chat("maru", "Can I walk up onto the Geunjeongjeon terrace right now?", "en", {}, ref("2026-09-15T12:00"))
+    assert en.status == "answered" and "restricted" in en.answer
+    after = engine.chat("maru", "경복궁 근정전 월대 지금 올라갈 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    assert after.status == "insufficient_evidence"   # 종료 후에는 이 공지만으로 현재 출입 가능 여부를 확정하지 않음
+    other = engine.chat("maru", "경복궁 입장료 얼마야?", "ko", {}, ref("2026-09-15T12:00"))
+    assert "출입이 제한" not in other.answer        # 대상이 다른 질문에는 출입 제한 판정을 붙이지 않음
+
+
+def test_explicit_place_scope_skips_relevance_gate(engine):
+    """장소를 명시적으로 고른 뒤의 막연한 후속 질문도 그 장소 근거를 모델에 전달한다."""
+    res = engine.chat("maru", "여기는 어떤 곳이야?", "ko", {"place_id": "jongmyo-shrine"}, ref("2026-11-17T12:00"))
+    part = res.debug["parts"][0]
+    assert part["kind"] == "document" and part["chunk_ids"]                      # 근거가 관문에서 다 버려지지 않음
+    assert {s for s, _, _ in part["ranks"]} == {"place:jongmyo-shrine"}           # 선택한 장소 근거만
