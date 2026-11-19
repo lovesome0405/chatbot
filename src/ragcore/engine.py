@@ -96,9 +96,10 @@ class Engine:
 
     # ── 부분 처리 ───────────────────────────
     def _run_part(self, adapter: Adapter, part: Part, lang: str, now: datetime, mode, debug) -> PartResult:
-        if part.kind == "structured":
-            res = adapter.run_structured(part, self.store, now, lang)
-        else:
+        res = adapter.run_structured(part, self.store, now, lang) if part.kind == "structured" else None
+        if res is None:  # 정형 규칙이 맞는 행을 찾지 못하면(어댑터가 None) 문서 검색으로 처리한다
+            if part.kind == "structured":
+                part.kind = "document"
             res = self._document_part(adapter, part, lang, now, mode)
         debug["parts"].append({"kind": part.kind, "intent": part.intent, "status": res.status} | res.debug)
         debug["model_calls"] += res.model_calls
@@ -157,7 +158,10 @@ class Engine:
             return PartResult("unavailable", message=msg("unavailable", lang),
                               related=[citation_from(e, e.text[:160], "검색 결과(생성 실패)") for e in body],
                               model_calls=1, debug=dbg)
-        checked = citecheck.verify(gen.claims, body, question=part.text)
+        # 되풀이 검사는 앱이 붙인 힌트('(here = …)') 없이 사용자가 실제로 쓴 질문과 비교한다(v0.4.0)
+        checked = citecheck.verify(gen.claims, body, question=part.user_text or part.text, aliases=adapter.aliases,
+                                   glossary=getattr(adapter, "term_glossary", None),
+                                   term_pattern=getattr(adapter, "term_pattern", None))
         dbg |= {"gen_ms": round(gen.latency_ms, 1), "abstain": gen.abstain, "dropped": checked.dropped,
                 "unknown_ids": checked.unknown_ids, "quote_misses": checked.quote_misses,
                 "value_mismatches": checked.value_mismatches, "raw_claims": len(gen.claims),

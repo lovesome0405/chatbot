@@ -207,6 +207,16 @@ class PgStore:
             (project, collection, collection),
         ).fetchall()
 
+    def chunks(self, project: str, collection: str) -> list[dict]:
+        """한 컬렉션의 공개 조각(정형 행 조회용). 표 행처럼 조각 단위 구조가 있는 자료에서 쓴다."""
+        return self.conn.execute(
+            """select c.id as chunk_id, c.locator, c.text, c.structured, d.id as document_id, d.source_id, d.title, d.url,
+                      d.metadata, d.published_at, d.checked_at, d.valid_from, d.valid_to, d.content_level, d.source_type
+               from rag_chunk c join rag_document d on d.id = c.document_id
+               where d.project=%s and d.collection=%s and d.is_public order by d.source_id, c.chunk_key""",
+            (project, collection),
+        ).fetchall()
+
     def first_chunk(self, document_id: int) -> dict | None:
         return self.conn.execute(
             "select id as chunk_id, locator, text, structured from rag_chunk where document_id=%s order by chunk_key limit 1",

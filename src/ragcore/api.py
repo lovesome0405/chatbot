@@ -17,7 +17,7 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -66,7 +66,8 @@ def engine():
 app = FastAPI(title="ragcore", version=__version__)
 _settings = Settings()
 app.add_middleware(CORSMiddleware, allow_origins=_settings.public_origins, allow_methods=["POST"],
-                   allow_headers=["content-type"], allow_credentials=False)
+                   allow_headers=["content-type"], allow_credentials=False,
+                   expose_headers=["Server-Timing", "X-Request-Id", "Retry-After"])
 _hits: dict[str, deque] = defaultdict(deque)
 
 
@@ -78,32 +79,57 @@ def project_from_key(authorization: str | None = Header(default=None)) -> str:
     return project
 
 
-def _run(project: str, body: ChatIn) -> ChatOut:
+def client_ip(request: Request, hops: int) -> str:
+    """요청 제한용 클라이언트 주소. hops>0 이면 X-Forwarded-For 의 오른쪽에서 hops 번째(믿는 프록시가 붙인 값)를 쓴다.
+    hops=0(기본)이면 헤더를 무시한다 → 방문객이 헤더를 꾸며 제한을 피할 수 없다."""
+    peer = request.client.host if request.client else "?"
+    if hops <= 0:
+        return peer
+    chain = [x.strip() for x in request.headers.get("x-forwarded-for", "").split(",") if x.strip()]
+    return chain[-hops] if len(chain) >= hops else peer
+
+
+def _timing(response: Response, res_debug: dict, total_ms: float):
+    """구간별 지연을 Server-Timing 헤더로 알린다(앱·프록시가 어느 구간에서 느린지 잴 수 있게). 질문 내용은 넣지 않는다."""
+    parts = res_debug.get("parts") or []
+    ret = sum(sum((p.get("retrieval_ms") or {}).values()) for p in parts)
+    gen = sum(p.get("gen_ms") or 0 for p in parts)
+    response.headers["Server-Timing"] = f"retrieval;dur={ret:.0f}, generation;dur={gen:.0f}, total;dur={total_ms:.0f}"
+
+
+def _run(project: str, body: ChatIn, response: Response | None = None) -> ChatOut:
+    t0 = time.perf_counter()
     eng = engine()
     ref = None
     if body.reference_time is not None:
         if not eng.settings.allow_reference_time:
             raise HTTPException(status_code=400, detail="reference_time is disabled on this server")
         ref = body.reference_time if body.reference_time.tzinfo else body.reference_time.replace(tzinfo=SEOUL)
+    elif eng.settings.allow_reference_time and eng.settings.fixed_now:
+        ref = datetime.fromisoformat(eng.settings.fixed_now).replace(tzinfo=SEOUL)
     res = eng.chat(project, body.question, body.language, body.context, ref)
+    if response is not None:
+        _timing(response, res.debug, (time.perf_counter() - t0) * 1000)
+        response.headers["X-Request-Id"] = res.request_id
     return ChatOut(**res.public_dict())
 
 
 @app.post("/v1/chat", response_model=ChatOut)
-def chat(body: ChatIn, project: str = Depends(project_from_key)):
-    return _run(project, body)
+def chat(body: ChatIn, response: Response, project: str = Depends(project_from_key)):
+    return _run(project, body, response)
 
 
 @app.post("/v1/public/chat", response_model=ChatOut)
-def public_chat(body: ChatIn, request: Request):
-    ip = request.client.host if request.client else "?"
+def public_chat(body: ChatIn, request: Request, response: Response):
+    st = engine().settings
+    ip = client_ip(request, st.trust_proxy_hops)
     q, now = _hits[ip], time.monotonic()
     while q and now - q[0] > 60:
         q.popleft()
-    if len(q) >= 20:
-        raise HTTPException(status_code=429, detail="too many requests")
+    if len(q) >= st.public_rate_per_min:
+        raise HTTPException(status_code=429, detail="too many requests", headers={"Retry-After": "60"})
     q.append(now)
-    return _run(engine().settings.public_project, body)
+    return _run(st.public_project, body, response)
 
 
 @app.get("/health")

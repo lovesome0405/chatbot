@@ -1,13 +1,14 @@
-"""롤리폴리(Django) → RAG 엔진 호출 예제. LOLYPOLY 저장소에 바로 넣지 말고 후속 작업에서 검토 후 반영한다.
+"""롤리폴리(Django) → RAG 엔진 호출 예제(v0.2 기록용).
+v0.4.0 실제 적용본은 LOLYPOLY `campus/rag.py` + `POST /assistant/ask/`(CSRF, 질문은 POST 본문) — reports/v0.4.0/INTEGRATION.md 참고.
 
 서버 측에서만 호출한다(앱 키는 Django 설정/환경변수, 브라우저에 노출하지 않음). 표준 라이브러리만 사용.
     RAG_API_URL=http://127.0.0.1:8088   RAG_APP_KEY=<RAG_APP_KEYS의 lolypoly 키>
 
-views.py 예:
-    from django.http import JsonResponse
-    from .rag_client import ask_rag
+views.py 예(질문은 GET 쿼리가 아니라 POST 본문으로 받는다: 주소·로그에 질문이 남지 않고 CSRF 검사를 받는다):
+    from django.views.decorators.http import require_POST
+    @require_POST
     def rag_answer(request):
-        q = (request.GET.get("q") or "")[:500]
+        q = (json.loads(request.body or b"{}").get("question") or "")[:500]
         return JsonResponse(ask_rag(q, language="ko"), json_dumps_params={"ensure_ascii": False})
 """
 

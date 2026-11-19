@@ -1,4 +1,5 @@
-// MARU(Ari) → RAG 엔진 호출 예제. ari/app.js 에 바로 넣지 말고 후속 작업에서 검토 후 반영한다.
+// MARU(Ari) → RAG 엔진 호출 예제(v0.2 기록용). v0.4.0 실제 적용본은 ari `app.js` 의 "공통 RAG 엔진 연결" 구역
+// (askAri 대신 sendAriMessage → sendAriRagMessage, rag-config.json). reports/v0.4.0/INTEGRATION.md 참고.
 // 브라우저에는 모델 키·앱 키를 두지 않는다. 공개 MARU 범위에 묶인 중계 엔드포인트(/v1/public/chat)만 호출한다.
 //
 // 연결 방법(제안):

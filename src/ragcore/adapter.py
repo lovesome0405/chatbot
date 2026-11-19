@@ -42,6 +42,7 @@ class Part:
     source_ids: list[str] | None = None      # 검색 범위를 특정 원본으로 제한(명시적으로 전달된 ID)
     collections: list[str] | None = None
     keep_order: list[str] | None = None      # 앱이 이미 계산한 순서를 보존할 원본 ID 순서
+    user_text: str | None = None              # 힌트를 붙이기 전 사용자 질문(되풀이 검사는 이것과 비교)
 
 
 @dataclass

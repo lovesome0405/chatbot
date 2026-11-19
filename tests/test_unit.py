@@ -266,3 +266,63 @@ def test_prompt_is_language_specific():
 def test_topic_particle_follows_final_consonant():
     from ragcore.textnorm import topic
     assert topic("근정전 월대") == "근정전 월대는" and topic("근정전") == "근정전은" and topic("Jongmyo") == "Jongmyo은(는)"
+
+
+# ── v0.4.0: 영어 주장 검사 ─────────────────
+def test_wrong_romanized_district_dropped():
+    """M14 회귀: 근거는 '종로구'인데 영어 주장이 'Jungmu-gu'라고 쓰면 버린다. 맞는 표기는 통과."""
+    from adapters.maru.adapter import MaruAdapter
+
+    ad = MaruAdapter()
+    evs = [_ev("E1", "종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구", "종묘 (Jongmyo Shrine)")]
+    bad = {"text": "Jongmyo Shrine is a royal heritage site in Jungmu-gu district of Seoul.",
+           "citations": [{"id": "E1", "quote": "종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구"}]}
+    good = {"text": "Jongmyo Shrine is a royal heritage site in Jongno-gu.",
+            "citations": [{"id": "E1", "quote": "종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구"}]}
+    v = verify([bad, good], evs, question="Tell me about Jongmyo Shrine", aliases=ad.aliases,
+               glossary=ad.term_glossary, term_pattern=ad.term_pattern)
+    assert [t for t, _ in v.claims] == [good["text"]]
+    assert v.dropped[0]["reason"] == "term_not_in_cited_source"
+
+
+def test_english_echo_needs_translated_support():
+    """N02·N19 회귀: 질문을 되풀이한 영어 답은 질문 단어를 별칭으로 한국어로 바꿔 근거에서 찾아야 남는다."""
+    from adapters.lolypoly.adapter import LolypolyAdapter
+    from adapters.maru.adapter import MaruAdapter
+
+    maru, loly = MaruAdapter(), LolypolyAdapter()
+    gbg = _ev("E1", "경복궁 (Gyeongbokgung Palace) — 궁궐 / 종로구")
+    ghg = _ev("E2", "조선 후기 궁궐 중 하나로 비교적 조용하게 궁궐 분위기를 느낄 수 있습니다.")
+    q = "I want a quiet palace without big crowds"
+    v = verify([{"text": "Yes, Gyeongbokgung Palace is a quiet palace without big crowds.",
+                 "citations": [{"id": "E1", "quote": "경복궁 (Gyeongbokgung Palace) — 궁궐 / 종로구"}]},
+                {"text": "Gyeonghuigung is a quiet palace without big crowds.",
+                 "citations": [{"id": "E2", "quote": "비교적 조용하게 궁궐 분위기를 느낄 수 있습니다"}]}],
+               [gbg, ghg], question=q, aliases=maru.aliases)
+    assert [t for t, _ in v.claims] == ["Gyeonghuigung is a quiet palace without big crowds."]
+    row1 = _ev("E1", "[장학제도 표] 구분: 교내 | 종류: 이사장 장학금 | 수혜자격: 입학성적 전체 수석자 1명")
+    v = verify([{"text": "No, there is no scholarship for students who work for the college.",
+                 "citations": [{"id": "E1", "quote": "[장학제도 표] 구분: 교내 | 종류: 이사장 장학금 | 수혜자격: 입학성적 전체 수석자 1명"}]}],
+               [row1], question="Is there a scholarship for students who work for the college?", aliases=loly.aliases)
+    assert not v.claims and v.dropped[0]["reason"] == "echo_unsupported"
+
+
+def test_client_ip_ignores_forwarded_header_by_default():
+    from types import SimpleNamespace
+
+    from ragcore.api import client_ip
+
+    req = SimpleNamespace(client=SimpleNamespace(host="10.0.0.5"), headers={"x-forwarded-for": "1.2.3.4, 9.9.9.9"})
+    assert client_ip(req, 0) == "10.0.0.5"          # 헤더를 믿지 않음(꾸민 헤더로 제한 회피 불가)
+    assert client_ip(req, 1) == "9.9.9.9"           # 믿는 프록시 1단: 그 프록시가 붙인 마지막 값
+    assert client_ip(req, 3) == "10.0.0.5"          # 체인이 짧으면 직접 연결 주소
+
+
+def test_place_hint_not_counted_as_question_echo():
+    """'What is this place?'에 앱이 붙인 장소 힌트 때문에 맞는 답이 '질문 베끼기'로 버려지지 않는다(H07)."""
+    evs = [_ev("E1", "창덕궁 (Changdeokgung Palace) — 궁궐 / 종로구")]
+    claim = {"text": "This place is Changdeokgung Palace (창덕궁).",
+             "citations": [{"id": "E1", "quote": "창덕궁 (Changdeokgung Palace) — 궁궐 / 종로구"}]}
+    hinted = "What is this place? (here = Changdeokgung Palace / 창덕궁)"
+    assert not verify([claim], evs, question=hinted).claims            # 힌트까지 질문으로 보면 버려짐(이전 동작)
+    assert verify([claim], evs, question="What is this place?").claims  # 원래 질문과 비교하면 남음

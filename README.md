@@ -6,7 +6,7 @@
 
 프로젝트별 명칭·조회 규칙은 어댑터에 두고, 엔진은 프로젝트 이름을 모른다. 세 번째 도메인(도서관, 합성)은 JSON 파일 등록만으로 검색된다.
 
-> 상태(2026-11-17): 로컬 구현·테스트·평가·시연까지 실행했다. 운영 배포, 원격 푸시, 원본 앱(LOLYPOLY·ari) 수정, 유료 API 호출은 하지 않았다.
+> 상태(2026-11-19, v0.4.0): 두 실제 앱(롤리폴리 식단 화면, MARU 아리 패널)에 연결해 **로컬 실연동**까지 확인했다(브라우저 → 앱 → 엔진 → DB, E2E 32/32). 스테이징·운영 배포와 유료 API 호출은 하지 않았다. 앱 저장소 변경은 이 세션에 push 권한이 없어 `reports/v0.4.0/patches/`의 패치로 남겼다. 인계: [reports/v0.4.0/INTEGRATION.md](reports/v0.4.0/INTEGRATION.md).
 
 ## 데이터 유형 (화면·인용에 표시)
 | 데이터 | 유형 | 내용 |
@@ -72,8 +72,8 @@ export PYTHONPATH=src:.
 | `examples/ari_maru/ari-rag-bridge.js` | node에서 Ari `buildAriContext()` 모양의 객체로 호출. `ranking.topRoutes` 순서가 응답 인용 순서에 그대로 유지됨 | ari `app.js`는 수정하지 않았다. 장애 시 `fallbackAriReply`는 "로컬 안내(근거 검색 답변 아님)" 표시를 붙여 쓰도록 안내만 했다 |
 | `examples/maru-static/index.html` | Playwright로 390px 화면에서 실제 호출·렌더링, 가로 넘침 없음 (`reports/maru-static-demo.png`) | 공개 중계 엔드포인트만 쓴다. 공개 배포 시 HTTPS·도메인·남용 방지 정책이 따로 필요하다 |
 
-## 테스트 (2026-11-18 v0.3.0 실행)
-`pytest -q` → **45 passed** (단위 22 + 실제 PostgreSQL/pgvector 통합 23, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트를 돌린다.
+## 테스트 (2026-11-19 v0.4.0 실행)
+`pytest -q` → **54 passed** (v0.4.0: 단위 26 + 실제 PostgreSQL/pgvector 통합 28, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트를 돌린다. 앱 화면 E2E는 `e2e/apps.e2e.cjs`(실제 서버 필요, CI 밖).
 판정 가능한 필수 조건은 모두 자동 테스트로 확인했다:
 
 | 필수 조건 | 테스트 |
@@ -136,7 +136,18 @@ export PYTHONPATH=src:.
 
 v0.3.0에서 3B가 7B와 비슷해졌다. 상태 일치는 3B가 높고, 7B는 의미 오류가 적다(아래 한계). 해요체 비율은 약 17%로 낮다(모델이 지시해도 "~습니다"를 주로 씀). 수치는 전체 실행 결과에 마지막 되풀이 검증 수정을 재생 평가(`scripts/replay_eval.py`, 저장된 모델 출력 재사용, 모델 호출 없음)로 반영한 것이다. 상세: [reports/v0.3.0/COMPARE.md](reports/v0.3.0/COMPARE.md), 변경 내용: [CHANGELOG.md](CHANGELOG.md).
 
-## 3분 시연 순서 (`scripts/demo.py`, 기록: `reports/demo-transcript.txt`)
+## v0.4.0 두 앱 3분 시연 (실제 앱 화면)
+| 시간 | 화면 | 질문 → 보여 줄 것 |
+|---|---|---|
+| 0:00 | 구조 한 장 | 엔진 하나(검색·근거 검증·계약) + 앱별 어댑터·진입점(INTEGRATION.md 1절 표) |
+| 0:30 | 롤리폴리 `/meals/` | "오늘 점심 뭐야?" → 자료 없는 날: 마지막 확인 시각 + 공식 식단 링크 / "11월 10일 점심 뭐야?" → 정형 조회, 모델 0회 |
+| 1:00 | 롤리폴리 | "성적우수장학금은 신입생도 1학기에 받을 수 있어?" → "아니요, … 2학기부터" + 장학표 **행 3** 공식 원문. 전에는 모델이 질문을 복사해 보류(QUALITY.md 3-1) |
+| 1:30 | MARU 코스 상세 | 경복궁 카드 → 국립민속박물관 카드로 바꿔 "What is this place?" → B만 전달·앱 데이터 출처. "What is the order of this course?" → 앱 데이터 방문 순서 |
+| 2:10 | MARU(평가 서버, 기준 2026-09-15) | "Can I go up to the Geunjeongjeon terrace now?" → 공식 공지·적용 기간. 일반 서버는 기준 시각 덮어쓰기를 400으로 거부 |
+| 2:35 | 잘못된 답 찾기·고치기 | M14 "Jungmu-gu"·N02 경복궁 되풀이를 단계표(검색→근거→주장→판정)로 보여 주고, 서버 검증으로 막힌 결과와 남은 회귀 N07 |
+| 2:55 | 끄기 | 롤리폴리 환경변수 비우기, 아리 `rag-config.json` off → 기존 흐름 |
+
+## 3분 시연 순서(v0.3.0, CLI) (`scripts/demo.py`, 기록: `reports/demo-transcript.txt`)
 1. **오늘 점심** (롤리폴리 키, 기준 2026-11-10): 정형 조회로 중식 레코드를 그대로 반환. 모델 호출 0회. 출처 유형 "저장소 데이터"
 2. **장학표 한 행 인용**: "학과수석 입학자는 장학금 얼마나 받아?" → `장학제도 표 > 행 2` 인용, 1년간 교육비 전액면제. 출처 유형 "실제 공개 원문"
 3. **같은 서버로 영어 문화 질문** (MARU 키): "Tell me about Jongmyo Shrine" → 한국어 원문 근거와 출처 링크. v0.3.0 평가에서는 영어 질문 9/9가 영어로 답했지만, 3B가 이 질문에 "Jungmu-gu"(실제 종로구)라는 틀린 위치를 붙인 적이 있다(아래 한계)

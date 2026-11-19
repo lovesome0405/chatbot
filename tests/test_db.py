@@ -123,7 +123,7 @@ def test_meal_present_empty_missing_are_distinct(engine):
     missing = engine.chat("lolypoly", "오늘 점심 뭐야?", "ko", {}, ref("2026-11-17T12:00"))
     assert ok.status == "answered" and "상하이파스타" in ok.answer and ok.debug["model_calls"] == 0
     assert empty.status == "answered" and "비어" in empty.answer
-    assert missing.status == "insufficient_evidence" and "레코드가 없어" in missing.answer
+    assert missing.status == "insufficient_evidence" and "레코드가 없어" in missing.answer and "마지막 확인" in missing.answer
     assert "meal:" not in " ".join(sources(missing))  # 다른 날짜 근사 결과 없음
 
 
@@ -242,3 +242,93 @@ def test_explicit_place_scope_skips_relevance_gate(engine):
     part = res.debug["parts"][0]
     assert part["kind"] == "document" and part["chunk_ids"]                      # 근거가 관문에서 다 버려지지 않음
     assert {s for s, _, _ in part["ranks"]} == {"place:jongmyo-shrine"}           # 선택한 장소 근거만
+
+
+# ── v0.4.0 ───────────────────────────────
+def test_scholarship_row_rule_keeps_target_term_amount_together(engine):
+    """L09 회귀: 대상(신입생)·학기·금액을 같은 표 행에서 읽는다. 학기를 바꾸면 결론이 바뀐다. 모델 호출 0회."""
+    no = engine.chat("lolypoly", "성적우수장학금은 신입생도 1학기에 받을 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    yes = engine.chat("lolypoly", "신입생은 2학기에 성적장학금 받을 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    en = engine.chat("lolypoly", "Can a freshman get the academic excellence scholarship in the first semester?", "en", {},
+                     ref("2026-11-17T12:00"))
+    assert no.answer.startswith("아니요") and "2학기부터" in no.answer and "1개학기 교육비 전액면제" in no.answer
+    assert yes.answer.startswith("네") and no.debug["model_calls"] == 0
+    assert en.answer.startswith("No") and en.status == "answered"
+    assert no.citations[0].locator.startswith("장학제도 표 > 행 3")
+    # 같은 행이 아닌 금액(행 2의 '1년간')을 행 3 문장에 섞지 않는다
+    first_line = no.answer.splitlines()[0]
+    assert "1년간" not in first_line
+
+
+def test_scholarship_rule_absent_falls_back_to_document(engine):
+    res = engine.chat("lolypoly", "근로 장학금은 신입생도 1학기에 받을 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    assert res.route == "document"        # 규칙 행이 없으면 정형 판정을 만들지 않고 문서 검색으로 넘긴다
+
+
+def _export_with(tmp_path, base_path, mutate):
+    import json
+
+    data = json.loads(base_path.read_text(encoding="utf-8"))
+    mutate(data)
+    out = tmp_path / "export.json"
+    out.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return out
+
+
+def test_meal_explicit_none_differs_from_missing_day(engine, tmp_path):
+    from adapters.lolypoly.adapter import LolypolyAdapter
+
+    ad = engine.adapters["lolypoly"]
+
+    def put_none(d):
+        for m in d["meals"]:
+            if m["date"] == "2026-11-11" and m["meal_type"] == "lunch":
+                m["items"] = ["금일 중식 없음"]
+
+    new = LolypolyAdapter(ad.dir, export_path=_export_with(tmp_path, ad.export_path, put_none))
+    sync(new, engine.store, engine.embedder)
+    engine.adapters["lolypoly"] = new
+    none = engine.chat("lolypoly", "오늘 점심 뭐야?", "ko", {}, ref("2026-11-11T12:00"))
+    missing = engine.chat("lolypoly", "오늘 점심 뭐야?", "ko", {}, ref("2026-11-20T12:00"))
+    assert none.status == "answered" and "금일 중식 없음" in none.answer and "중식이 없어요" in none.answer
+    assert missing.status == "insufficient_evidence" and "마지막 확인" in missing.answer
+    assert missing.citations[0].url and "menu=4819" in missing.citations[0].url   # 공식 식단 경로
+
+
+def test_failed_source_keeps_last_success_and_original_date(engine, tmp_path):
+    """공지 수집이 실패한 export(공지 0건, 상태 failed)를 적재해도 마지막 성공 공지와 원래 수집일이 남는다."""
+    from adapters.lolypoly.adapter import LolypolyAdapter
+
+    ad = engine.adapters["lolypoly"]
+    before = {d["source_id"]: d["checked_at"] for d in engine.store.documents("lolypoly", "notices")}
+
+    def fail_notices(d):
+        d["notices"] = []
+        d["provenance"]["collections"] = {"meals": {"last_run_status": "success"}, "events": {"last_run_status": "success"},
+                                          "notices": {"last_run_status": "failed"}}
+
+    new = LolypolyAdapter(ad.dir, export_path=_export_with(tmp_path, ad.export_path, fail_notices))
+    st = sync(new, engine.store, engine.embedder)
+    after = {d["source_id"]: d["checked_at"] for d in engine.store.documents("lolypoly", "notices")}
+    assert st["deleted"] == 0 and before and after == before
+
+
+def test_public_rate_limit_and_reference_time(engine, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from ragcore import api
+
+    engine.settings.allow_reference_time = False
+    engine.settings.public_rate_per_min = 2
+    engine.settings.trust_proxy_hops = 0
+    api._hits.clear()
+    monkeypatch.setattr(api, "engine", lambda: engine)
+    c = TestClient(api.app)
+    # 일반 요청의 기준 시각 덮어쓰기는 거부
+    assert c.post("/v1/public/chat", json={"question": "경복궁", "reference_time": "2026-09-15T12:00:00"}).status_code == 400
+    r = c.post("/v1/public/chat", json={"question": "경복궁은 어떤 곳이야?"})
+    assert r.status_code == 200 and "total;dur=" in r.headers["server-timing"]
+    # X-Forwarded-For 를 바꿔도(프록시 미신뢰) 같은 클라이언트로 센다
+    r = c.post("/v1/public/chat", json={"question": "경복궁"}, headers={"X-Forwarded-For": "5.6.7.8"})
+    assert r.status_code == 429 and r.headers.get("retry-after") == "60"
+    api._hits.clear()

@@ -1,0 +1,287 @@
+{
+ "run_at": "2026-11-19T15:05:33.688Z",
+ "results": [
+  {
+   "app": "lolypoly",
+   "name": "식단 화면에 안내 칸 표시",
+   "ok": true
+  },
+  {
+   "app": "lolypoly",
+   "name": "자료 없는 날: 마지막 확인 시각·공식 식단 경로",
+   "ok": true,
+   "answer": "안내:\n\n자료에서 찾지 못했어요\n\n2026-11-20(금) 중식 식단 레코드가 없어요. 아직 수집되지 않았거나 공식 식단표에 없는 날짜예요(수집된 식단 범위: 2026-11-02~2026-11-15, 마지막 확인: 2026-11-02 00:00 KST). 다른 날 메뉴로 대신 알려드리지 않을게요. 공식 식단 페이지에서 확인해 주세요. [1]\n\n[1]\n식단 정보 (공식 홈페이지)\n앱 수집 자료\n\n식단 페이지 · 마지막 확인 2026-11-02 00:00 KST · 해당 날짜 자료 없음 · 공식 식단 경로",
+   "ms": 95
+  },
+  {
+   "app": "lolypoly",
+   "name": "자료 있는 식단(11-10 중식) 정형 조회",
+   "ok": true,
+   "answer": "안내:\n\n2026-11-10(화) 중식 메뉴는 이렇게 나와요: 상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자 [1]\n\n[1]\n2026-11-10(화) 중식 식단\n앱 수집 자료\n\n식단 > 2026-11-10(화) 중식 · LOLYPOLY 저장소 fixture 재현 · 공식 홈페이지 2026-11-02 저장본 · lolypoly@ccc0237\n\n상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자",
+   "ms": 148
+  },
+  {
+   "app": "lolypoly",
+   "name": "장학표 행 3(대상·학기·금액 같은 행)",
+   "ok": true,
+   "answer": "안내:\n\n아니요, 성적우수 장학금(‘직전학기 학과별 성적우수자 학급당 1명’, 1개학기 교육비 전액면제)는 신입생의 경우 2학기부터 적용돼요. 비고: “직전학기 성적 3.0이상 신입생은 2학기부터 적용”. [1]\n\n같은 성적우수 장학금의 ‘학과수석 입학자 1명’ 행은 1년간 교육비 전액면제예요(비고: 직전학기 성적 3.0이상). [2]\n\n[1]\n한국폴리텍대학 춘천캠퍼스 장학제도\n공식 원문\n\n장학제도 표 > 행 3 (교내 / 성적우수 장학금) · 확인 시각 2026-11-17 08:26 UTC · 표 행 규칙(서버 판정)\n\n[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 직전학기 학과별 성적우수자 학급당 1명 | 지급액 및 기간: 1개학기 교육비 전액면제 | 비고: 직전학기 성적 3.0이상 신입생은 2학기부터 적용\n\n[2]\n한국폴리텍대학 춘천캠퍼스 장학제도\n공식 원문\n\n장학제도 표 > 행 2 (교내 / 성적우수 장학금) · 확인 시각 2026-11-17 08:26 UTC · 같은 표의 다른 행\n\n[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 학과수석 입학자 1명 | 지급액 및 기간: 1년간 교육비 전액면제 | 비고: 직전학기 성적 3.0이상",
+   "ms": 146
+  },
+  {
+   "app": "lolypoly",
+   "name": "출처 링크: 공식 장학 페이지, 새 창·noopener",
+   "ok": true,
+   "link": {
+    "href": "https://www.kopo.ac.kr/chuncheon/content.do?menu=4799",
+    "target": "_blank",
+    "rel": "noopener noreferrer"
+   }
+  },
+  {
+   "app": "lolypoly",
+   "name": "출처 클릭 시 새 탭 열림",
+   "ok": true,
+   "url": "https://www.kopo.ac.kr/chuncheon/content.do?menu=4799"
+  },
+  {
+   "app": "lolypoly",
+   "name": "문서 질문 실제 임베딩·생성(qwen2.5:3b)",
+   "ok": true,
+   "answer": "안내:\n\n학과수석 입학자 장학금 혜택은 1년간 교육비 전액면제입니다. [1]\n\n[1]\n한국폴리텍대학 춘천캠퍼스 장학제도\n공식 원문\n\n장학제도 표 > 행 2 (교내 / 성적우수 장학금) · 확인 시각 2026-11-17 08:26 UTC\n\n[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 학과수석 입학자 1명 | 지급액 및 기간: 1년간 교육비 전액면제 | 비고: 직전학기 성적 3.0이상",
+   "ms": 37085
+  },
+  {
+   "app": "lolypoly",
+   "name": "되묻기 후 입력칸으로 답하기",
+   "ok": true,
+   "first": "안내:\n\n조금 더 알려 주세요\n\n조식·중식·석식 중 어느 끼니를 알려드릴까요?",
+   "second": "안내:\n\n2026-11-10(화) 중식 메뉴는 이렇게 나와요: 상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자 [1]\n\n[1]\n2026-11-10(화) 중식 식단\n앱 수집 자료\n\n식단 > 2026-11-10(화) 중식 · LOLYPOLY 저장소 fixture 재현 · 공식 홈페이지 2026-11-02 저장본 · lolypoly@ccc0237\n\n상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자",
+   "sent": "{\"question\":\"11월 10일 메뉴 뭐야? 점심\"}"
+  },
+  {
+   "app": "lolypoly",
+   "name": "전송 중 중복 전송 방지",
+   "ok": true,
+   "requests": 1
+  },
+  {
+   "app": "lolypoly",
+   "name": "대화 지우기",
+   "ok": true
+  },
+  {
+   "app": "lolypoly",
+   "name": "[모의] 연결 끊김 → 입력 복구, 기록에 오류 없음, 다시 시도 성공",
+   "ok": true,
+   "status": "연결이 끊겼어요. 인터넷 연결을 확인하고 다시 시도해 주세요.",
+   "input": "11월 11일 저녁 뭐야?",
+   "retry": true,
+   "logCount": 0
+  },
+  {
+   "app": "lolypoly",
+   "name": "[모의] HTTP 429 안내와 입력 복구",
+   "ok": true,
+   "status": "질문이 너무 많아요. 잠시 뒤 다시 시도해 주세요."
+  },
+  {
+   "app": "lolypoly",
+   "name": "[모의] HTTP 504 안내와 입력 복구",
+   "ok": true,
+   "status": "답변이 너무 오래 걸려서 멈췄어요. 잠시 뒤 다시 시도해 주세요."
+  },
+  {
+   "app": "lolypoly",
+   "name": "모바일(iPhone 13) 가로 넘침 없음",
+   "ok": true
+  },
+  {
+   "app": "maru",
+   "name": "장소 A(gyeongbokgung-palace)→B(national-folk-museum) 전환 후 \"What is this place?\" — B만 전달·B 출처",
+   "ok": true,
+   "chip": "Selected place: National Folk Museum of Korea\nClear",
+   "answer": "ARI\n\nThis place is the National Folk Museum of Korea (국립민속박물관). [1]\n\n[1] 국립민속박물관 (National Folk Museum of Korea) App data\n국립민속박물관 (National Folk Museum of Korea) > 문단 1 · MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전)\n국립민속박물관 (National Folk Museum of Korea) — 박물관 / 종로구",
+   "context": {
+    "course_id": "palace-history-course",
+    "ranked_place_ids": [
+     "national-palace-museum",
+     "gyeongbokgung-palace",
+     "national-folk-museum"
+    ],
+    "place_id": "national-folk-museum",
+    "ranked_route_ids": [
+     "palace-history-course",
+     "bukchon-hanok-culture-course",
+     "rainy-day-indoor-heritage",
+     "insadong-craft-course",
+     "night-traditional-culture-course",
+     "traditional-market-food-course"
+    ]
+   },
+   "ms": 13355
+  },
+  {
+   "app": "maru",
+   "name": "출처 링크(앱 데이터)는 새 창·noopener",
+   "ok": true,
+   "link": {
+    "href": "https://github.com/lovesome0405/ari/blob/a3a5f0f629af4433dfdfd6f353c664f19756d09c/ari_culture_resources_appjs.json",
+    "target": "_blank",
+    "rel": "noopener noreferrer"
+   }
+  },
+  {
+   "app": "maru",
+   "name": "선택 해제 뒤 오래된 장소 ID 없음 → clarification_needed 그대로 표시",
+   "ok": true,
+   "answer": "ARI\n\nCould you tell me a bit more?\n\nWhich place do you mean?",
+   "context": {
+    "course_id": "palace-history-course",
+    "ranked_place_ids": [
+     "national-palace-museum",
+     "gyeongbokgung-palace",
+     "national-folk-museum"
+    ],
+    "ranked_route_ids": [
+     "palace-history-course",
+     "bukchon-hanok-culture-course",
+     "rainy-day-indoor-heritage",
+     "insadong-craft-course",
+     "night-traditional-culture-course",
+     "traditional-market-food-course"
+    ]
+   }
+  },
+  {
+   "app": "maru",
+   "name": "코스 질문: 앱 데이터의 방문 순서",
+   "ok": true,
+   "answer": "ARI\n\nThe order of the course is National Palace Museum of Korea → Gyeongbokgung → National Folk Museum of Korea. [1]\n\nRoyal Palace History Walk stops: National Palace Museum (국립고궁박물관) → Gyeongbokgung Palace (경복궁) → National Folk Museum of Korea (국립민속박물관) [2]\n\n[1] 궁궐 역사 산책 코스 (Royal Palace History Walk) App data\n궁궐 역사 산책 코스 > 문단 2 · MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전)\n코스 순서: 국립고궁박물관 → 경복궁 → 국립민속박물관\n[2] 궁궐 역사 산책 코스 (Royal Palace History Walk) App data\n궁궐 역사 산책 코스 > 문단 2 · MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전) · 코스 순서(데이터)\n코스 순서: 국립고궁박물관 → 경복궁 → 국립민속박물관",
+   "context": {
+    "course_id": "palace-history-course",
+    "ranked_place_ids": [
+     "national-palace-museum",
+     "gyeongbokgung-palace",
+     "national-folk-museum"
+    ],
+    "ranked_route_ids": [
+     "palace-history-course",
+     "bukchon-hanok-culture-course",
+     "rainy-day-indoor-heritage",
+     "insadong-craft-course",
+     "night-traditional-culture-course",
+     "traditional-market-food-course"
+    ]
+   },
+   "ms": 11662
+  },
+  {
+   "app": "maru",
+   "name": "전송 중 중복 전송 방지",
+   "ok": true,
+   "requests": 1,
+   "answer": "ARI\n\nJongmyo Shrine is a royal heritage site located in Jongno-gu, Seoul. [1]\n\n[1] 종묘 (Jongmyo Shrine) App data\n종묘 (Jongmyo Shrine) > 문단 1 · MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전)\n종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구"
+  },
+  {
+   "app": "maru",
+   "name": "M14 화면 확인: 종묘 답에 잘못된 구 이름 없음",
+   "ok": true,
+   "answer": "ARI\n\nJongmyo Shrine is a royal heritage site located in Jongno-gu, Seoul. [1]\n\n[1] 종묘 (Jongmyo Shrine) App data\n종묘 (Jongmyo Shrine) > 문단 1 · MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전)\n종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구"
+  },
+  {
+   "app": "maru",
+   "name": "대화가 길어도 아리 패널 닫기 버튼이 화면 안",
+   "ok": true,
+   "vh": 839,
+   "panel": [
+    12,
+    533
+   ],
+   "close": [
+    35,
+    73
+   ],
+   "msgs": [
+    148,
+    439
+   ]
+  },
+  {
+   "app": "maru",
+   "name": "닫기 버튼으로 패널 닫힘",
+   "ok": true
+  },
+  {
+   "app": "maru",
+   "name": "페이지 전환 뒤 이전 장소·코스 ID 없음",
+   "ok": true,
+   "context": {
+    "ranked_route_ids": [
+     "palace-history-course",
+     "bukchon-hanok-culture-course",
+     "rainy-day-indoor-heritage",
+     "insadong-craft-course",
+     "night-traditional-culture-course",
+     "traditional-market-food-course"
+    ]
+   }
+  },
+  {
+   "app": "maru",
+   "name": "[모의] 연결 끊김: 오류는 상태 줄, 로컬 안내 라벨, 입력 복구",
+   "ok": true,
+   "status": "Couldn't reach the guide server. Below is the local guide.",
+   "input": "Tell me about Changdeokgung Palace",
+   "retry": true,
+   "added": 2,
+   "local": "ARI\n\nLocal guide · not a source-checked answer\n\nChangdeokgung Palace (창덕궁) is a Palace stop. A Joseon palace known for the harmony between royal architecture an"
+  },
+  {
+   "app": "maru",
+   "name": "[모의 해제] 다시 시도 → 실제 엔진 응답",
+   "ok": true,
+   "cls": "ari-message ari-message-assistant is-rag is-answered"
+  },
+  {
+   "app": "maru",
+   "name": "[모의] HTTP 429 → 로컬 안내 라벨",
+   "ok": true,
+   "status": "Too many questions right now. Please try again in a minute. Below is the local guide."
+  },
+  {
+   "app": "maru",
+   "name": "[모의] status=unavailable → 로컬 안내 라벨",
+   "ok": true,
+   "status": "The guide server had a problem. Below is the local guide."
+  },
+  {
+   "app": "maru",
+   "name": "월대 출입 제한 2026-09-15(기간 안) — 평가 서버 고정 시각",
+   "ok": true,
+   "answer": "ARI\n\nNo, you cannot go up to the Geunjeongjeon terrace now. The source says: \"성수기 많은 관람객으로 인한 근정전 돌난간 등 석조물의 손상이 우려되어 2026년 9월 2일(수)부터 2026년 10월 31일(토)까지 근정전 월대 출입을 제한합니다\". [1]\n\n[1] 경복궁 근정전 월대 출입 제한 안내(2026.9.2.(수)~10.31.(토)) Official source\n경복궁 근정전 월대 출입 제한 안내(2026.9.2.(수)~10.31.(토)) > 문단 2 · 적용 기간 2026-09-02 ~ 2026-10-31\n성수기 많은 관람객으로 인한 근정전 돌난간 등 석조물의 손상이 우려되어 2026년 9월 2일(수)부터 2026년 10월 31일(토)까지 근정전 월대 출입을 제한합니다."
+  },
+  {
+   "app": "maru",
+   "name": "월대 출입 제한 2026-11-01(종료 후) — 평가 서버 고정 시각",
+   "ok": true,
+   "answer": "ARI\n\nI couldn't find this in the verified sources\n\nI couldn't find this in the verified sources. [1][2][3]\n\n[1] 선릉과 정릉 (Seonjeongneung Royal Tombs) App data\n선릉과 정릉 (Seonjeongneung Royal Tombs) > 문단 6 · MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전) · 관련 원문(답변 근거 아님)\n실내/실외: 실외, 걷기 난이도: 보통\n[2] 경희궁 (Gyeonghuigung Palace) App data\n경희궁 (Gyeonghuigung Palace) > 문단 6 · MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전) · 관련 원문(답변 근거 아님)\n실내/실외: 실외, 걷기 난이도: 낮음\n[3] 국립고궁박물관 (National Palace Museum of Korea) App data\n국립고궁박물관 (National Palace Museum of Korea) > 문단 6 · MARU 저장소 데이터 ari@a3a5f0f (공식 출처 재검증 전) · 관련 원문(답변 근거 아님)\n실내/실외: 실내, 걷기 난이도: 낮음"
+  },
+  {
+   "app": "maru",
+   "name": "일반 서버: reference_time 요청 거부(400)",
+   "ok": true,
+   "status": 400
+  },
+  {
+   "app": "maru",
+   "name": "RAG 설정 off → 기존 아리 흐름(엔진 호출 0, 로컬 라벨 없음)",
+   "ok": true,
+   "answer": "ARI\n\nFor a first visit, Royal Palace History Walk is the safest place to start. It gives you strong royal-heritage context and familiar landmark flow. If it rai"
+  },
+  {
+   "app": "maru",
+   "name": "모바일(Pixel 7) 가로 넘침 없음",
+   "ok": true
+  }
+ ]
+}

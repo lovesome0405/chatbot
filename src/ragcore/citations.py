@@ -4,6 +4,8 @@
   1. 인용 ID가 이번 요청에 전달한 근거 ID 중 하나인가 (아니면 그 인용 폐기)
   2. 발췌(quote)가 해당 근거 원문에 그대로 포함되는가 (공백만 정규화)
   3. 주장에 나온 날짜·숫자(금액·학점 등)가 인용된 근거 원문에 있는가
+  4. (v0.4.0) 영어 주장 속 로마자 고유명(예: 'Jongno-gu')이 어댑터 용어집으로 한국어로 바뀌어 인용 근거에 있는가
+  5. (v0.4.0) 질문을 되풀이한 영어 주장은 질문 단어를 별칭 사전으로 한국어로 바꿔 인용 근거에서 찾는다
 통과한 인용이 하나도 없는 주장은 버린다.
 자동 판정은 "인용이 주장을 의미상 지지하는가"를 보장하지 않는다 → 정답셋·사람 검토로 별도 확인.
 """
@@ -135,6 +137,54 @@ def echo_supported(text: str, question: str, evidence_text: str) -> bool:
     return True
 
 
+_EN_FILLER = {"yes", "no", "not", "there", "isn", "aren", "don", "doesn", "t", "s", "also", "very", "really", "some", "many",
+              "much", "more", "most", "than", "here", "place", "visit", "want", "like", "good", "great", "nice", "get", "go",
+              "one", "without", "big", "small", "students", "student", "people", "visitors", "visitor", "seoul", "korea", "korean"}
+
+
+def _alias_terms(word: str, aliases: dict[str, list[str]]) -> list[str]:
+    """영어 단어가 들어 있는 별칭 키(단어 또는 구)의 한국어 값. 'crowds' → 'crowd' 처럼 끝의 s 도 시도한다."""
+    from .textnorm import normalize
+    forms = {word, word[:-1] if word.endswith("s") and len(word) > 3 else word}
+    out = []
+    for key, values in aliases.items():
+        k = normalize(key).split()
+        if any(f in k for f in forms):
+            out += [v for v in values if re.search(r"[가-힣]", v)]
+    return out
+
+
+def echo_supported_en(text: str, question: str, evidence_text: str, aliases: dict[str, list[str]]) -> bool:
+    """영어 되풀이 주장: 주장과 질문이 함께 쓴 내용어마다 (a) 근거에 영어 그대로 있거나 (b) 별칭으로 바꾼 한국어가 근거에 있어야 한다.
+    바꿀 수 없는 내용어가 남으면 확인할 수 없으므로 지지하지 않는다(보수적으로 버림)."""
+    from .textnorm import QUERY_STOPWORDS, normalize
+    src = normalize(evidence_text)
+    compact = src.replace(" ", "")
+    q_words = set(normalize(question).split())
+    for w in normalize(text).split():
+        if w not in q_words or w in QUERY_STOPWORDS or w in _EN_FILLER or len(w) < 3 or not w.isalpha():
+            continue
+        if f" {w} " in f" {src} ":
+            continue
+        terms = _alias_terms(w, aliases)
+        if not terms or not any(t.replace(" ", "") in compact for t in terms):
+            return False
+    return True
+
+
+def term_problems(text: str, cited_text: str, glossary: dict[str, str] | None, pattern: str | None) -> list[str]:
+    """주장에 나온 로마자 고유명(pattern에 맞는 것)이 용어집(로마자 소문자→한국어)으로 인용 근거의 한국어와 맞는지.
+    용어집에 없는 형태(예: 'Jungmu-gu')나 근거에 없는 대상이면 문제로 돌려준다."""
+    if not glossary or not pattern:
+        return []
+    bad = []
+    for m in re.finditer(pattern, text or ""):
+        ko = glossary.get(m.group(0).lower())
+        if not ko or ko not in cited_text:
+            bad.append(m.group(0))
+    return bad
+
+
 def enrich_echo(text: str, quote: str, lang: str) -> str:
     """되풀이 주장 뒤에 이미 검증된 근거 발췌를 붙인다(새 사실을 만들지 않음)."""
     q = quote.strip().rstrip(".。")
@@ -142,8 +192,8 @@ def enrich_echo(text: str, quote: str, lang: str) -> str:
 
 
 _NON_ANSWER = re.compile(
-    r"알려지지 않|알려주지 못|알려드릴 수 없|알 수 없|찾을 수 없|찾지 못|나와 있지 않|언급되지 않|언급이 없|언급하지 않|정보가 없|자료가 없|"
-    r"not mention|no information|not available in|can(?:no|')t find|could not find|couldn't find|not provided|"
+    r"알려지지 않|알려주지 못|알려주지 않|알려드릴 수 없|알 수 없|찾을 수 없|찾지 못|나와 있지 않|언급되지 않|언급이 없|언급하지 않|정보가 없|자료가 없|"
+    r"not mention|no mention|no specific mention|in the provided (?:evidence|sources?)|no information|not available in|can(?:no|')t find|could not find|couldn't find|not provided|"
     r"does(?: not|n't) (?:say|specify|include)|not specified|i don't know|unknown", re.I)
 
 
@@ -158,7 +208,9 @@ def _echoes_question(text: str, question: str | None) -> bool:
     return bool(question) and text.rstrip().endswith(("?", "？"))
 
 
-def verify(claims: list[dict], evidences: list[Evidence], question: str | None = None) -> Verified:
+def verify(claims: list[dict], evidences: list[Evidence], question: str | None = None,
+           aliases: dict[str, list[str]] | None = None, glossary: dict[str, str] | None = None,
+           term_pattern: str | None = None) -> Verified:
     by_id = {ev.eid: ev for ev in evidences}
     out = Verified()
     for claim in claims:
@@ -193,11 +245,19 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
             out.value_mismatches += 1
             out.dropped.append({"reason": "value_not_in_cited_source", "values": missing, "claim": text[:200]})
             continue
+        bad_terms = term_problems(text, " ".join(ev.text + " " + ev.title for ev, _ in good), glossary, term_pattern)
+        if bad_terms:
+            out.value_mismatches += 1
+            out.dropped.append({"reason": "term_not_in_cited_source", "terms": bad_terms, "claim": text[:200]})
+            continue
         if question and _overlap(text, question) >= 0.6:
             if _overlap(text, question) == 1.0:          # 질문을 글자 그대로 옮김: 답이 아님
                 out.dropped.append({"reason": "echoes_question", "claim": text[:200]})
                 continue
-            if not echo_supported(text, question, cited_text):   # v0.3.0 회귀 수정: 무관한 발췌로 근거 없는 답을 감싸지 않는다
+            from .textnorm import is_korean
+            ok = (echo_supported(text, question, cited_text) if is_korean(text)
+                  else echo_supported_en(text, question, cited_text, aliases or {}))
+            if not ok:   # v0.3.0: 무관한 발췌로 근거 없는 답을 감싸지 않는다. v0.4.0: 영어 주장도 검사
                 out.dropped.append({"reason": "echo_unsupported", "claim": text[:200]})
                 continue
             out.echo_claims.add(len(out.claims))

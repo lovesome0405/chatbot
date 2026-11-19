@@ -62,6 +62,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("original")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--questions", default="eval/questions.jsonl")
     a = ap.parse_args()
     original = json.loads(Path(a.original).read_text(encoding="utf-8"))
     engine = build(generator="fake")
@@ -75,7 +76,7 @@ def main():
     engine.chat = chat_with_replay
     from eval.run_eval import run
 
-    run(engine, str(ROOT / "eval/questions.jsonl"), ["hybrid"], True, a.out)
+    run(engine, str(ROOT / a.questions), ["hybrid"], True, a.out)
     out = Path(a.out)
     rep = json.loads(out.read_text(encoding="utf-8"))
     lat = {r["id"]: r["latency_ms"] for r in original["full"]["results"]}

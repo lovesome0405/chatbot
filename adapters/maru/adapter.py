@@ -25,6 +25,17 @@ GITHUB = "https://github.com/lovesome0405/ari/blob/{commit}/{path}"
 COURSE_REF = ["이 코스", "이코스", "이 루트", "이 경로", "이 동선", "this course", "this route", "this tour", "on this route",
               "on this course"]
 PLACE_REF = ["여기", "이곳", "이 곳", "거기", "그곳", "이 장소", "this place", "here", "there"]
+# 서울 자치구 공식 로마자 표기(국어의 로마자 표기법). 영어 답의 'Xxx-gu'·'Xxx District'가 인용 근거의 한국어 구와 맞는지 확인(v0.4.0)
+SEOUL_GU = {
+    "종로구": "Jongno", "중구": "Jung", "용산구": "Yongsan", "성동구": "Seongdong", "광진구": "Gwangjin", "동대문구": "Dongdaemun",
+    "중랑구": "Jungnang", "성북구": "Seongbuk", "강북구": "Gangbuk", "도봉구": "Dobong", "노원구": "Nowon", "은평구": "Eunpyeong",
+    "서대문구": "Seodaemun", "마포구": "Mapo", "양천구": "Yangcheon", "강서구": "Gangseo", "구로구": "Guro", "금천구": "Geumcheon",
+    "영등포구": "Yeongdeungpo", "동작구": "Dongjak", "관악구": "Gwanak", "서초구": "Seocho", "강남구": "Gangnam", "송파구": "Songpa",
+    "강동구": "Gangdong",
+}
+# 개정 전 표기·흔한 변형(Jongro, Kangnam …)도 같은 구로 인정한다. 용어집에 없는 형태는 확인할 수 없어 버린다
+GU_VARIANTS = {"종로구": ["Jongro"], "강남구": ["Kangnam"], "서대문구": ["Sodaemun", "Seodaemoon"], "중구": ["Joong"],
+               "동대문구": ["Tongdaemun", "Dongdaemoon"], "성북구": ["Sungbuk"], "영등포구": ["Youngdeungpo"]}
 RANKING_TERMS = ["추천 순위", "인기 코스", "인기 순위", "순위", "top routes", "top courses", "ranking", "most popular",
                  "recommended routes", "recommended courses"]
 
@@ -48,8 +59,15 @@ class MaruAdapter(Adapter):
         "woldae": ["월대"], "restricted": ["제한"], "restriction": ["제한"], "go up": ["출입"], "access": ["출입"],
         "opening": ["개방"], "performance": ["공연"], "traditional music": ["국악"], "independence": ["독립"],
         "prison": ["형무소"], "history": ["역사"], "folk": ["민속"], "village": ["마을"], "first visit": ["첫 방문"],
-        "first time": ["첫 방문", "처음"], "의식": ["의례"], "궁": ["궁궐"], "식사시간": ["식사 시간", "점심 휴식"],
+        "first time": ["첫 방문", "처음"],
+        "quiet": ["조용", "한적"], "calm": ["조용", "한적"], "peaceful": ["조용", "한적"], "crowd": ["혼잡", "인파", "붐비"],
+        "crowds": ["혼잡", "인파", "붐비"], "crowded": ["혼잡", "인파", "붐비"], "without crowds": ["한적", "조용"],
+        "less crowded": ["한적", "조용"], "fewer people": ["한적", "조용"], "의식": ["의례"], "궁": ["궁궐"], "식사시간": ["식사 시간", "점심 휴식"],
     }
+
+    term_pattern = r"\b[A-Z][a-z]+(?:-[a-z]+)?(?:-gu|-Gu| District| district)\b"
+    term_glossary = {k: ko for ko, en in SEOUL_GU.items() for name in [en, *GU_VARIANTS.get(ko, [])]
+                     for k in (f"{name.lower()}-gu", f"{name.lower()} district", f"{name.lower()}-gu district")}
 
     def __init__(self, data_dir: str | Path = "data/maru"):
         self.dir = Path(data_dir)
@@ -200,7 +218,8 @@ class MaruAdapter(Adapter):
                 r = self._places[pid]
                 hint = (f"{text} (여기 = {r['nameKo']} ({r.get('nameEn', '')}))" if lang == "ko"
                         else f"{text} (here = {r.get('nameEn', '')} / {r['nameKo']})")
-                return Part("document", hint, "place_ref", source_ids=[f"place:{pid}"], time_sensitive=ts, needs_detail=detail)
+                return Part("document", hint, "place_ref", source_ids=[f"place:{pid}"], time_sensitive=ts, needs_detail=detail,
+                            user_text=text)
             if not named:
                 q = "어느 장소를 말씀하시는지 알려 주실래요?" if lang == "ko" else "Which place do you mean?"
                 return Part("clarify", text, "place_ref", clarify=q)

@@ -56,8 +56,14 @@ class Settings:
     # 정적 웹(MARU) 공개 중계 엔드포인트: 고정 프로젝트 1개에만 묶인다.
     public_project: str = field(default_factory=lambda: _env("RAG_PUBLIC_PROJECT", "maru"))
     public_origins: list[str] = field(default_factory=lambda: [o for o in _env("RAG_PUBLIC_ORIGINS", "http://127.0.0.1:8765").split(",") if o])
+    # 공개 중계 요청 제한(클라이언트 IP당 분당 횟수)과, 리버스 프록시 뒤에서 X-Forwarded-For 를 믿을 홉 수(기본 0 = 믿지 않음)
+    public_rate_per_min: int = field(default_factory=lambda: _env_int("RAG_PUBLIC_RATE_PER_MIN", 20))
+    trust_proxy_hops: int = field(default_factory=lambda: _env_int("RAG_TRUST_PROXY_HOPS", 0))
     # 평가·데모에서만 기준 시각을 요청으로 받는다(운영 기본 off)
     allow_reference_time: bool = field(default_factory=lambda: _env_bool("RAG_ALLOW_REFERENCE_TIME", False))
+    # 평가 서버 전용: 모든 요청의 기준 시각을 고정(예: 2026-09-15T12:00). RAG_ALLOW_REFERENCE_TIME=1 일 때만 쓰인다.
+    # 앱 화면 E2E 에서 과거 공지 기간을 재현할 때 쓴다. 운영 서버에는 두지 않는다.
+    fixed_now: str = field(default_factory=lambda: _env("RAG_FIXED_NOW", ""))
     timezone: str = "Asia/Seoul"
 
 
