@@ -161,19 +161,25 @@ def test_time_sensitive_without_dated_source(engine):
     assert res.status == "insufficient_evidence"
 
 
-def test_generation_failure_is_unavailable_not_answer(engine):
+def test_generation_failure_falls_back_to_verified_quote(engine):
+    """v0.5.0: 생성이 실패·시간 초과면 근거 원문 발췌로 답하고(검증 통과분만), 발췌할 문장이 없을 때만 unavailable."""
     engine.generator = FakeGenerator(fail=True)
-    res = engine.chat("lolypoly", "학과수석 입학자 장학금 혜택", "ko", {}, ref("2026-11-17T12:00"))
-    assert res.status == "unavailable" and "생성된 답변 아님" in res.answer
-    assert all(c.note == "검색 결과(생성 실패)" for c in res.citations)
+    res = engine.chat("maru", "인사동에서 전통공예를 볼 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    assert res.status == "answered" and "자료에는 “" in res.answer and "공예" in res.answer
+    assert all(c.note.startswith("원문 발췌") for c in res.citations)
+    none = engine.chat("lolypoly", "zzqx 알려줘", "ko", {}, ref("2026-11-17T12:00"))
+    assert none.status in ("unavailable", "insufficient_evidence") and "자료에는" not in none.answer
 
 
 def test_bad_citation_ids_never_returned(engine):
     engine.generator = FakeGenerator(bad_citation=True)
-    res = engine.chat("lolypoly", "학과수석 입학자 장학금 혜택", "ko", {}, ref("2026-11-17T12:00"))
-    assert res.status == "insufficient_evidence"
-    assert res.debug["parts"][0]["unknown_ids"] >= 1
-    valid = {d["source_id"] for d in engine.store.documents("lolypoly")}
+    res = engine.chat("maru", "인사동에서 전통공예를 볼 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    part = res.debug["parts"][0]
+    assert part["unknown_ids"] >= 1                                   # 모델의 없는 ID는 모두 버림
+    # v0.5.0: 모델 주장이 전부 버려지면 근거 원문 발췌로 대체(같은 검증 통과분만) — 모델 주장 자체는 하나도 나가지 않는다
+    assert part.get("fallback") == "extractive_after_drop"
+    assert all(c.note and c.note.startswith("원문 발췌") for c in res.citations)
+    valid = {d["source_id"] for d in engine.store.documents("maru")}
     assert set(sources(res)) <= valid
 
 
@@ -187,7 +193,7 @@ def test_unexpected_error_is_unavailable(engine, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("db down")
     monkeypatch.setattr(engine.store, "keyword_search", boom)
-    res = engine.chat("maru", "경복궁은 어떤 곳이야?", "ko", {}, ref("2026-11-17T12:00"))
+    res = engine.chat("maru", "인사동에서 전통공예를 볼 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
     assert res.status == "unavailable" and res.citations == []
 
 
@@ -238,7 +244,7 @@ def test_access_restriction_status_decided_by_code(engine):
 
 def test_explicit_place_scope_skips_relevance_gate(engine):
     """장소를 명시적으로 고른 뒤의 막연한 후속 질문도 그 장소 근거를 모델에 전달한다."""
-    res = engine.chat("maru", "여기는 어떤 곳이야?", "ko", {"place_id": "jongmyo-shrine"}, ref("2026-11-17T12:00"))
+    res = engine.chat("maru", "여기는 걷기 힘든 곳이야?", "ko", {"place_id": "jongmyo-shrine"}, ref("2026-11-17T12:00"))
     part = res.debug["parts"][0]
     assert part["kind"] == "document" and part["chunk_ids"]                      # 근거가 관문에서 다 버려지지 않음
     assert {s for s, _, _ in part["ranks"]} == {"place:jongmyo-shrine"}           # 선택한 장소 근거만
@@ -332,3 +338,64 @@ def test_public_rate_limit_and_reference_time(engine, monkeypatch):
     r = c.post("/v1/public/chat", json={"question": "경복궁"}, headers={"X-Forwarded-For": "5.6.7.8"})
     assert r.status_code == 429 and r.headers.get("retry-after") == "60"
     api._hits.clear()
+
+
+# ── v0.5.0: 정형 답 확대·미리 만든 답 ───────
+def test_structured_rows_events_hours_without_model(engine):
+    r = engine.chat("lolypoly", "학과수석 입학자는 장학금 얼마나 받아?", "ko", {}, ref("2026-11-17T12:00"))
+    assert r.route == "structured" and "1년간 교육비 전액면제" in r.answer and r.debug["model_calls"] == 0
+    assert r.citations[0].locator.startswith("장학제도 표 > 행 2")
+    w = engine.chat("lolypoly", "Is there a scholarship for students who work for the college?", "en", {}, ref("2026-11-17T12:00"))
+    assert w.answer.startswith("Yes.") and "반액" in w.answer
+    vague = engine.chat("lolypoly", "장학금 신청 방법 알려줘", "ko", {}, ref("2026-11-17T12:00"))
+    assert vague.route == "document"            # 행을 고를 수 없으면 정형 답을 만들지 않음
+    ev = engine.chat("lolypoly", "학위수여식 언제야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert ev.route == "structured" and ev.answer.startswith("- 학위수여식") and "2027-02-03" in ev.answer.splitlines()[0]
+    hours = engine.chat("lolypoly", "학생식당 식사시간 알려줘", "ko", {}, ref("2026-11-10T12:00"))
+    assert hours.route == "structured" and "점심 11:50 - 13:20" in hours.answer
+    stale = engine.chat("lolypoly", "학생식당 식사시간 알려줘", "ko", {}, ref("2027-03-10T12:00"))
+    assert stale.status == "insufficient_evidence"   # 오래된 시간표는 정형 답 대신 시점 보류
+
+
+def test_place_and_course_intro_from_app_data(engine):
+    ko = engine.chat("maru", "경복궁은 어떤 곳이야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert ko.route == "structured" and ko.answer.startswith("경복궁(Gyeongbokgung Palace)은 종로구에 있는 궁궐이에요.")
+    en = engine.chat("maru", "What is this place?", "en", {"place_id": "jongmyo-shrine"}, ref("2026-11-17T12:00"))
+    assert "Jongmyo Shrine (종묘)" in en.answer and "Jongno-gu" in en.answer and en.debug["model_calls"] == 0
+    assert all(c.source_id == "place:jongmyo-shrine" for c in en.citations)
+    attr = engine.chat("maru", "What is the entrance fee here?", "en", {"place_id": "jongmyo-shrine"}, ref("2026-11-17T12:00"))
+    assert attr.route != "structured"           # 속성(요금) 질문은 소개 템플릿으로 답하지 않음
+    course = engine.chat("maru", "Night Traditional Culture Course 어떤 코스야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert course.route == "structured" and "→" in course.answer
+
+
+def test_answer_cache_hit_invalidation_and_exclusions(engine):
+    engine.settings.answer_cache = True
+    q = "인사동에서 전통공예를 볼 수 있어?"
+    first = engine.chat("maru", q, "ko", {})
+    assert first.status == "answered" and not first.debug.get("cache_hit")
+    second = engine.chat("maru", q + "  ", "ko", {})
+    assert second.debug.get("cache_hit") and second.answer == first.answer and second.request_id != first.request_id
+    assert not engine.chat("maru", q, "ko", {}, ref("2026-11-17T12:00")).debug.get("cache_hit")   # 고정 시각 요청은 늘 새로
+    # 자료가 바뀌면(문서 버전) 저장된 답을 쓰지 않는다
+    engine.store.conn.execute("update rag_document set version = version || 'x' where project='maru' and source_id='place:insadong'")
+    assert not engine.chat("maru", q, "ko", {}).debug.get("cache_hit")
+    # 시점 질문은 저장하지 않는다
+    engine.chat("maru", "경복궁 근정전 월대 지금 올라갈 수 있어?", "ko", {})
+    assert not engine.chat("maru", "경복궁 근정전 월대 지금 올라갈 수 있어?", "ko", {}).debug.get("cache_hit")
+    engine.store.cache_clear()
+
+
+def test_generation_budget_is_split_across_parts(engine):
+    seen = []
+
+    class Spy(FakeGenerator):
+        def generate(self, *a, budget_s=None, **k):
+            seen.append(budget_s)
+            return super().generate(*a, **k)
+
+    engine.generator = Spy()
+    engine.settings.gen_budget_s = 8
+    res = engine.chat("maru", "이 코스 장소 순서 알려주고 그리고 입장료는 얼마야?", "ko", {"course_id": "palace-history-course"},
+                      ref("2026-11-17T12:00"))
+    assert res.route == "composite" and seen and all(b == 4 for b in seen)   # 문서 부분 2개 → 8초를 반씩

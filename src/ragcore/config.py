@@ -41,9 +41,19 @@ class Settings:
     # 생성: fake(결정적 발췌형) | ollama
     generator: str = field(default_factory=lambda: _env("RAG_GENERATOR", "fake"))
     ollama_url: str = field(default_factory=lambda: _env("OLLAMA_URL", "http://127.0.0.1:11434"))
-    ollama_model: str = field(default_factory=lambda: _env("OLLAMA_MODEL", "qwen2.5:3b"))
+    # 기본 모델: 상업 이용 제한 없는(Apache 2.0) 모델만 쓴다(v0.5.0). qwen2.5:3b 는 Qwen Research(비상업) 라이선스라 뺐다.
+    # 4코어 CPU 실측: qwen2.5:1.5b 는 생성 26회 중 20회가 8초 안에 끝났고, qwen3:4b 는 0회(reports/v0.5.0/COMPARE.md).
+    ollama_model: str = field(default_factory=lambda: _env("OLLAMA_MODEL", "qwen2.5:1.5b"))
+    # 미리 만든 답(warm, 시간 상한 없는 밤 작업)에 쓸 모델. 비우면 ollama_model. 더 큰 Apache 2.0 모델을 권장
+    warm_model: str = field(default_factory=lambda: _env("RAG_WARM_MODEL", "qwen3:4b"))
     ollama_format: str = field(default_factory=lambda: _env("OLLAMA_FORMAT", "json"))
     ollama_timeout_s: int = field(default_factory=lambda: _env_int("OLLAMA_TIMEOUT_S", 180))
+    # v0.5.0 속도: 생성 1회에 쓸 수 있는 최대 시간(초). 넘으면 생성을 끊고 근거 원문 발췌로 답한다(0 = 상한 없음)
+    gen_budget_s: float = field(default_factory=lambda: float(_env("RAG_GEN_BUDGET_S", "8")))
+    gen_max_tokens: int = field(default_factory=lambda: _env_int("RAG_GEN_MAX_TOKENS", 160))   # 답 길이 상한(num_predict)
+    ollama_keep_alive: str = field(default_factory=lambda: _env("OLLAMA_KEEP_ALIVE", "30m"))     # 모델을 메모리에 상주
+    quote_style: str = field(default_factory=lambda: _env("RAG_QUOTE_STYLE", "short"))        # full | short(v0.5.0)
+    answer_cache: bool = field(default_factory=lambda: _env_bool("RAG_ANSWER_CACHE", True))
     # 검색 시작값
     keyword_top_n: int = field(default_factory=lambda: _env_int("RAG_KEYWORD_TOP_N", 10))
     vector_top_n: int = field(default_factory=lambda: _env_int("RAG_VECTOR_TOP_N", 10))

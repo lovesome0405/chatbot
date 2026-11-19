@@ -43,6 +43,7 @@ class Part:
     collections: list[str] | None = None
     keep_order: list[str] | None = None      # 앱이 이미 계산한 순서를 보존할 원본 ID 순서
     user_text: str | None = None              # 힌트를 붙이기 전 사용자 질문(되풀이 검사는 이것과 비교)
+    budget_s: float | None = None             # 이 부분의 생성 시간 상한(엔진이 요청 단위로 나눠 넣음)
 
 
 @dataclass

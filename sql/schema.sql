@@ -61,3 +61,15 @@ create table if not exists rag_sync_run (
     collections  jsonb       not null default '{}'::jsonb,
     stats        jsonb       not null default '{}'::jsonb
 );
+
+-- v0.5.0: 미리 만든 답(자주 묻는 질문). 자료가 바뀌면(data_version) 쓰지 않는다. 시점에 따라 달라지는 답은 저장하지 않는다
+create table if not exists rag_answer_cache (
+    project      text        not null,
+    cache_key    text        not null,
+    data_version text        not null,
+    payload      jsonb       not null,
+    source       text        not null default 'live',      -- live | warm
+    created_at   timestamptz not null default now(),
+    hits         integer     not null default 0,
+    primary key (project, cache_key)
+);

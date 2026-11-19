@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 import uuid
 from dataclasses import asdict
@@ -12,7 +13,8 @@ from datetime import datetime, timedelta
 from . import citations as citecheck
 from . import textnorm
 from .adapter import Adapter, Claim, Part, PartResult
-from .generation import GenerationError
+from . import extractive
+from .generation import GenerationError, GenerationTimeout, GenOutput
 from .models import ChatResult, Citation, Evidence
 from .retrieval import retrieve
 from .timeutil import seoul_now
@@ -28,6 +30,8 @@ MSG = {
     "unavailable": {"ko": "잠시 오류가 나서 답변을 만들지 못했어요. 아래는 확인할 수 있는 검색 결과예요(생성된 답변 아님).",
                     "en": "A temporary error prevented generating an answer. Below are search results you can check (not a generated answer)."},
     "partial": {"ko": "[일부는 확인하지 못했어요]", "en": "[Partly unconfirmed]"},
+    "timeout": {"ko": "정해진 시간 안에 근거로 확인된 답을 만들지 못했어요. 아래 관련 자료를 확인해 주세요.",
+                "en": "I couldn't build a source-checked answer in time. Please check the related sources below."},
 }
 
 
@@ -63,7 +67,8 @@ class Engine:
 
     # ── 공개 진입점 ─────────────────────────
     def chat(self, project: str, question: str, language: str | None = None, context: dict | None = None,
-             reference_time: datetime | None = None, mode: str | None = None) -> ChatResult:
+             reference_time: datetime | None = None, mode: str | None = None, *, ask_as: str | None = None,
+             cache_source: str = "live") -> ChatResult:
         t0 = time.perf_counter()
         request_id = uuid.uuid4().hex[:12]
         adapter = self.adapters[project]  # 프로젝트는 호출자(서버 설정/앱 자격)가 결정
@@ -71,12 +76,31 @@ class Engine:
         lang = language or ("ko" if textnorm.is_korean(question) else "en")
         ctx = adapter.validate_context(context or {})
         debug: dict = {"parts": [], "model_calls": 0, "chunk_ids": [], "errors": []}
+        # v0.5.0 미리 만든 답: 실제 요청(기준 시각 덮어쓰기 없음)에서만 쓴다. 평가·데모의 고정 시각 요청은 늘 새로 계산
+        use_cache = self.settings.answer_cache and reference_time is None and mode is None
+        key = version = None
+        if use_cache:
+            key, version = cache_key(project, question, lang, ctx), self.store.data_version(project)
+            hit = self.store.cache_get(project, key, version)
+            if hit:
+                res = ChatResult(hit["status"], hit["route"], hit["answer"], [Citation(**c) for c in hit["citations"]],
+                                 now.isoformat(), request_id,
+                                 debug=debug | {"cache_hit": True, "latency_ms": round((time.perf_counter() - t0) * 1000, 1)})
+                log.info(json.dumps({"request_id": request_id, "project": project, "route": res.route, "status": res.status,
+                                     "latency_ms": res.debug["latency_ms"], "cache_hit": True}, ensure_ascii=False))
+                return res
+        parts = []
         try:
-            parts = adapter.plan(question, lang, ctx, now)
+            parts = adapter.plan(ask_as or question, lang, ctx, now)
             clar = next((p for p in parts if p.kind == "clarify"), None)
             if clar:
                 result = ChatResult("clarification_needed", "clarify", clar.clarify or "", [], now.isoformat(), request_id)
             else:
+                # 생성 시간 상한은 요청 전체 기준: 문서 부분이 둘이면 반씩 나눈다(복합 질문도 전체 상한 안에)
+                n_doc = sum(p.kind == "document" for p in parts) or 1
+                if self.settings.gen_budget_s:
+                    for p in parts:
+                        p.budget_s = self.settings.gen_budget_s / n_doc
                 results = [self._run_part(adapter, p, lang, now, mode, debug) for p in parts]
                 result = self._combine(parts, results, lang, now, request_id)
         except Exception as exc:  # 예기치 못한 장애도 RAG 답변처럼 보이지 않게 unavailable로
@@ -87,6 +111,9 @@ class Engine:
         debug["model"] = self.generator.name
         debug["embedder"] = self.embedder.name
         result.debug = debug
+        if use_cache and key and cacheable(result, parts):
+            self.store.cache_put(project, key, version, {k: v for k, v in result.public_dict().items()
+                                                          if k not in ("as_of", "request_id")}, cache_source)
         log.info(json.dumps({
             "request_id": request_id, "project": project, "route": result.route, "status": result.status,
             "latency_ms": debug["latency_ms"], "model": self.generator.name, "model_calls": debug["model_calls"],
@@ -151,30 +178,60 @@ class Engine:
         body = self._diverse(body, self.settings.final_top_k, self.settings.max_chunks_per_source)
         for i, e in enumerate(body, start=1):  # 모델에 보낼 ID를 1부터 다시 매김
             e.eid = f"E{i}"
+        fallback = None
+        t_gen = time.perf_counter()
         try:
-            gen = self.generator.generate(part.text, lang, body, today=as_of.isoformat(), persona=getattr(adapter, "persona", ""))
+            gen = self.generator.generate(part.text, lang, body, today=as_of.isoformat(), persona=getattr(adapter, "persona", ""),
+                                          budget_s=getattr(part, "budget_s", None))
         except GenerationError as exc:
+            # v0.5.0: 생성이 시간 상한을 넘기거나 실패하면, 새 문장을 쓰지 않고 근거 원문에서 맞는 문장을 그대로 보여 준다.
+            # 이 발췌도 아래 인용 검증을 똑같이 거친다. 발췌할 문장도 없으면 이전처럼 unavailable.
             dbg["error"] = f"generation:{type(exc).__name__}"
-            return PartResult("unavailable", message=msg("unavailable", lang),
-                              related=[citation_from(e, e.text[:160], "검색 결과(생성 실패)") for e in body],
-                              model_calls=1, debug=dbg)
+            ex = extractive.extract(part.user_text or part.text, lang, body, adapter.aliases)
+            has_action = bool(part.time_sensitive and self._action_claims(adapter, part, body, as_of, lang))
+            if not ex and not has_action:
+                if isinstance(exc, GenerationTimeout):
+                    # 시간 상한 초과 + 발췌할 문장 없음: 장애가 아니라 '시간 안에 확인된 답 없음'. 다시 시도해도 같으므로
+                    # unavailable(앱이 오류·재시도로 처리) 대신 관련 자료와 함께 보류로 돌려준다
+                    return PartResult("insufficient_evidence", message=msg("timeout", lang),
+                                      related=[citation_from(e, e.text[:120], "관련 원문(시간 안에 답을 만들지 못함)") for e in body[:3]],
+                                      model_calls=1, debug=dbg)
+                return PartResult("unavailable", message=msg("unavailable", lang),
+                                  related=[citation_from(e, e.text[:160], "검색 결과(생성 실패)") for e in body],
+                                  model_calls=1, debug=dbg)
+            fallback = "extractive"
+            gen = GenOutput(abstain=not ex, claims=ex, model="extractive",
+                            latency_ms=(time.perf_counter() - t_gen) * 1000)
+            dbg["fallback"] = fallback
         # 되풀이 검사는 앱이 붙인 힌트('(here = …)') 없이 사용자가 실제로 쓴 질문과 비교한다(v0.4.0)
         checked = citecheck.verify(gen.claims, body, question=part.user_text or part.text, aliases=adapter.aliases,
                                    glossary=getattr(adapter, "term_glossary", None),
-                                   term_pattern=getattr(adapter, "term_pattern", None))
+                                   term_pattern=getattr(adapter, "term_pattern", None), lang=lang)
         dbg |= {"gen_ms": round(gen.latency_ms, 1), "abstain": gen.abstain, "dropped": checked.dropped,
                 "unknown_ids": checked.unknown_ids, "quote_misses": checked.quote_misses,
                 "value_mismatches": checked.value_mismatches, "raw_claims": len(gen.claims),
                 "echo_enriched": len(checked.echo_claims),
                 "raw_output": gen.raw[:2000] if gen.raw else None, "evidence_ids": [(e.eid, e.source_id, e.locator) for e in body]}
         action = self._action_claims(adapter, part, body, as_of, lang) if part.time_sensitive else []
+        if not checked.claims and not action and not fallback:
+            # v0.5.0: 모델 주장이 검증에서 모두 버려졌으면, 근거 원문 발췌로 한 번 더 시도한다(발췌도 같은 검증을 거침)
+            ex = extractive.extract(part.user_text or part.text, lang, body, adapter.aliases)
+            if ex:
+                rechecked = citecheck.verify(ex, body, question=part.user_text or part.text, aliases=adapter.aliases, lang=None)
+                if rechecked.claims:
+                    checked, fallback = rechecked, "extractive_after_drop"
+                    dbg["fallback"] = fallback
         if not checked.claims and not action:
             rel = [citation_from(e, e.text[:120], "관련 원문(답변 근거 아님)") for e in body[:3]]
             return PartResult("insufficient_evidence", message=msg("insufficient", lang), related=rel, model_calls=1,
                               debug=dbg)
+        note = {"extractive": "원문 발췌(생성 시간 초과로 문장 생성 생략)",
+                "extractive_after_drop": "원문 발췌(모델 답이 근거 검증을 통과하지 못함)"}.get(fallback)
+        # 짧은 발췌(short 인용)는 검증을 통과한 뒤 원문 문장 전체로 넓혀 보여 준다
+        good_of = [[(ev, citecheck.expand_quote(q, ev.text)) for ev, q in good] for _, good in checked.claims]
         claims = action + [
-            Claim(citecheck.enrich_echo(text, good[0][1], lang) if i in checked.echo_claims else text,
-                  [citation_from(ev, quote) for ev, quote in good])
+            Claim(citecheck.enrich_echo(text, good_of[i][0][1], lang) if i in checked.echo_claims and not fallback else text,
+                  [citation_from(ev, quote, note) for ev, quote in good_of[i]])
             for i, (text, good) in enumerate(checked.claims)]
         if part.time_sensitive:
             claims += self._period_notes(checked, as_of, lang, skip={c.citations[0].source_id for c in action})
@@ -286,6 +343,28 @@ class Engine:
         else:
             status = "insufficient_evidence"
         return ChatResult(status, route, "\n".join(lines), cites, now.isoformat(), request_id)
+
+
+_KEY_STRIP = re.compile(r"[\s?？!！.。,，~…'\"“”‘’]+")
+
+
+def cache_key(project: str, question: str, lang: str, ctx: dict) -> str:
+    """질문 문장(대소문자·공백·문장부호 차이 무시) + 언어 + 화면 상태 ID. 뜻이 비슷한 다른 문장은 다른 키다(안전 우선)."""
+    import hashlib
+    import unicodedata
+    q = _KEY_STRIP.sub(" ", unicodedata.normalize("NFKC", question).lower()).strip()
+    raw = json.dumps([project, lang, q, sorted((k, v) for k, v in ctx.items() if v)], ensure_ascii=False, default=str)
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
+def cacheable(result: ChatResult, parts) -> bool:
+    """모델이 만든 답 중, 시점과 무관하고(기간·시점 질문 아님) 원문 발췌 대체가 아닌 것만 저장한다."""
+    d = result.debug
+    if result.status not in ("answered", "partial") or not d.get("model_calls"):
+        return False
+    if any(getattr(p, "time_sensitive", False) for p in parts) or any(x.get("fallback") for x in d.get("parts", [])):
+        return False
+    return not any((c.as_of or "").startswith("적용 기간") for c in result.citations)
 
 
 def to_json(result: ChatResult) -> str:

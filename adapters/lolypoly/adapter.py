@@ -74,6 +74,10 @@ class LolypolyAdapter(Adapter):
         "freshman": ["신입생", "입학"], "freshmen": ["신입생", "입학"], "new student": ["신입생"], "new students": ["신입생"],
         "first semester": ["1학기"], "second semester": ["2학기"], "academic excellence": ["성적우수"], "merit": ["성적우수"],
         "student council": ["학생회"], "contribution": ["공헌", "공로"], "welfare": ["복지"], "half": ["반액"],
+        "waive": ["면제"], "waives": ["면제"], "one full year": ["1년간"], "one year": ["1년간"], "full year": ["1년간"],
+        "two years": ["2년간"], "one semester": ["1개학기"], "2 year degree": ["2년제학위과정"], "two year degree": ["2년제학위과정"],
+        "degree program": ["학위과정"], "graduation": ["학위수여식"], "commencement": ["학위수여식"], "exams": ["시험"], "final exams": ["기말시험"], "midterm exams": ["중간시험"],
+        "practical exam": ["실기시험"], "written exam": ["필기시험"], "breakfast": ["조식"], "lunch": ["중식"], "dinner": ["석식"],
     }
 
     def __init__(self, data_dir: str | Path = "data/lolypoly", export_path: str | Path | None = None):
@@ -169,7 +173,8 @@ class LolypolyAdapter(Adapter):
     def classify(self, text: str, lang: str, ctx: dict, now: datetime) -> Part:
         low = text.lower()
         if has_any(low, ["식당", "학식", "식사", "cafeteria", "밥"]) and has_any(low, HOURS_TERMS):
-            return Part("document", text, "meal_hours", collections=["meal_hours"], time_sensitive=True)
+            # v0.5.0: 식사시간표 행을 그대로 답한다(모델 0회). 표가 오래됐으면 None → 문서 경로가 시점 보류를 판단
+            return Part("structured", text, "meal_hours", collections=["meal_hours"], time_sensitive=True)
         if has_any(low, MEAL_TERMS) and not has_any(low, ["장학", "scholarship"]):
             meal = next((k for k, words in MEAL_WORDS.items() if has_any(low, words)), None)
             day = resolve_date(text, now) or seoul_now(now).date()
@@ -188,6 +193,11 @@ class LolypolyAdapter(Adapter):
             sem = _semester(text)
             if target and sem:
                 return Part("structured", text, "scholarship_term", params={"target": target, "semester": sem})
+            # v0.5.0: 질문이 장학표의 한 행(종류·수혜자격·지급액)을 가리키면 그 행으로 답한다. 못 고르면 문서 검색
+            return Part("structured", text, "scholarship_row", needs_detail=has_any(low, DETAIL_TERMS))
+        if has_any(low, WHEN_TERMS) and not has_any(low, ["공지", "notice"]):
+            # v0.5.0: '○○ 언제야?' — 학사일정 제목과 맞는 행을 날짜와 함께 답한다. 못 고르면 문서 검색
+            return Part("structured", text, "event_name")
         if has_any(low, ["공지", "notice"]) and has_any(low, NOTICE_LIST_TERMS) and not has_any(low, DETAIL_TERMS):
             cat = next((c for c in NOTICE_CATEGORIES if c in text and c != "공지"), None)
             return Part("structured", text, "notice_list", params={"category": cat})
@@ -203,7 +213,100 @@ class LolypolyAdapter(Adapter):
             return self._notice_list(part, store, lang)
         if part.intent == "scholarship_term":
             return self._scholarship_term(part, store, lang)
+        if part.intent == "scholarship_row":
+            return self._scholarship_row(part, store, lang)
+        if part.intent == "event_name":
+            return self._event_name(part, store, now, lang)
+        if part.intent == "meal_hours":
+            return self._meal_hours(part, store, now, lang)
         raise NotImplementedError(part.intent)
+
+    def _scholarship_row(self, part: Part, store, lang: str) -> PartResult | None:
+        """장학표에서 질문과 가장 많이 겹치는 행(종류·수혜자격·지급액, 별칭 확장)을 고른다.
+        최고 점수 2 이상, 동점 행이 2개 이하일 때만 답하고 그 밖에는 None(문서 검색). 행끼리 섞지 않는다."""
+        q = _content_tokens(textnorm.expand_query(part.text, self.aliases))
+        rows = [r for r in store.chunks(PROJECT, "scholarship") if (r["structured"] or {}).get("cells")]
+        scored = []
+        for r in rows:
+            c = r["structured"]["cells"]
+            toks = _content_tokens(textnorm.tokens(" ".join([c.get("종류", ""), c.get("수혜자격", ""), c.get("지급액 및 기간", "")])))
+            scored.append((len(q & toks), r))
+        best = max((sc for sc, _ in scored), default=0)
+        top = [r for sc, r in scored if sc == best]
+        # 점수 1이어도, 겹친 말이 장학 '종류' 이름(근로·부사관·보훈 …)이고 그 행 하나뿐이면 그 행으로 답한다
+        kind_hit = best == 1 and len(top) == 1 and bool(
+            q & _content_tokens(textnorm.tokens(top[0]["structured"]["cells"].get("종류", ""))))
+        if (best < 2 and not kind_hit) or len(top) > 2:
+            return None
+        yes = _is_yes_no(part.text)
+        claims = []
+        for r in top:
+            c = r["structured"]["cells"]
+            amount, note = c.get("지급액 및 기간", ""), c.get("비고", "")
+            if lang == "ko":
+                head = "네, " if yes and not claims else ""
+                body = "별도 규정에 따라 지급돼요" if amount == "별도 규정" else f"{copula(amount)}"
+                txt = f"{head}{c['종류']}(‘{c['수혜자격']}’)는 {body}." + (f" 비고: {note}." if note else "")
+            else:
+                head = "Yes. " if yes and not claims else ""
+                txt = (f"{head}{c['종류']} — eligibility: ‘{c['수혜자격']}’; benefit: {amount}" + (f"; note: {note}." if note else "."))
+            claims.append(Claim(txt, [citation_from(r, r["text"], "표 행(서버 조회)")]))
+        return PartResult("answered", claims=claims, debug={"rows": [r["locator"] for r in top], "score": best})
+
+    def _event_name(self, part: Part, store, now: datetime, lang: str) -> PartResult | None:
+        """학사일정 제목·과정과 질문 내용어가 가장 많이 겹치는 일정을 날짜와 함께 답한다(앞으로 올 일정 먼저, 최대 5개).
+        질문 내용어의 절반 이상이 맞고 점수 2 이상일 때만, 아니면 None(문서 검색)."""
+        q = _content_tokens(textnorm.expand_query(part.text, self.aliases)) - WHEN_TOKENS
+        if not q:
+            return None
+        rows = store.documents(PROJECT, "events")
+        scored = []
+        for r in rows:
+            md = r["metadata"]
+            course = md.get("course", "") or ""
+            # '2년제학위과정'처럼 숫자로 시작하는 과정명은 원형과 '2년제 학위과정'으로 나눈 형태를 함께 비교한다
+            text = f"{md.get('event_title', '')} {course} {re.sub(r'^(\d+년제)', r'\1 ', course)}"
+            toks = _content_tokens(textnorm.tokens(text))
+            scored.append((len(q & toks), r))
+        best = max((sc for sc, _ in scored), default=0)
+        if best < 2 or best < len({t for t in q if not _is_bigram_of(t, q)}) / 2:
+            return None
+        today = seoul_now(now).date()
+        top = [r for sc, r in scored if sc == best]
+        top.sort(key=lambda r: (r["metadata"]["end_date"] < today.isoformat(), r["metadata"]["start_date"]))
+        claims = []
+        for r in top[:5]:
+            md = r["metadata"]
+            period = md["start_date"] if md["start_date"] == md["end_date"] else f"{md['start_date']}~{md['end_date']}"
+            past = md["end_date"] < today.isoformat()
+            mark = (" (지난 일정)" if lang == "ko" else " (past)") if past else ""
+            claims.append(Claim(f"- {md['event_title']} ({md['course'] or '-'}): {period}{mark}",
+                                [citation_from(r | {"locator": f"학사일정 > {md['event_title']}"},
+                                               f"학사일정 {md['event_title']} | 과정: {md['course'] or '-'} | 기간: {period.replace('~', ' ~ ')}")]))
+        return PartResult("answered", claims=claims, debug={"matched": len(top), "score": best})
+
+    def _meal_hours(self, part: Part, store, now: datetime, lang: str) -> PartResult | None:
+        rows = store.chunks(PROJECT, "meal_hours")
+        if not rows:
+            return None
+        checked = rows[0].get("checked_at")
+        if not checked or (now - checked).days > self.fresh_days:
+            return None   # 오래된 시간표 → 문서 경로가 '시점 확인 불가'로 보류
+        claims = []
+        en = {"아침": "breakfast", "점심": "lunch", "저녁": "dinner", "주중": "weekdays", "주말": "weekends", "구분": "type"}
+        for r in rows:
+            # 열 순서는 원문 그대로(조각 원문 '[표] 구분: 주중 | 아침: … | 점심: …')에서 읽는다(JSON 저장은 키 순서를 바꿈)
+            pairs = [seg.split(": ", 1) for seg in r["text"].split("] ", 1)[-1].split(" | ") if ": " in seg]
+            if not pairs:
+                continue
+            label = pairs[0][1]
+            rest = [(k, v) for k, v in pairs[1:] if v]
+            if lang == "ko":
+                txt = f"학생식당 {label}: " + ", ".join(f"{k} {v}" for k, v in rest)
+            else:
+                txt = f"Student cafeteria ({en.get(label, label)}): " + ", ".join(f"{en.get(k, k)} {v}" for k, v in rest)
+            claims.append(Claim(txt, [citation_from(r, r["text"], "식사시간표(확인 시각 기준)")]))
+        return PartResult("answered", claims=claims, debug={"rows": len(claims)}) if claims else None
 
     def _scholarship_term(self, part: Part, store, lang: str) -> PartResult | None:
         """장학 표에서 '대상은 N학기부터 적용' 규칙이 있는 행을 찾아, 질문의 대상·학기와 같은 행의 금액·조건으로 답한다.
@@ -321,6 +424,28 @@ class LolypolyAdapter(Adapter):
 
 def detect_lang(text: str) -> str:
     return "ko" if textnorm.is_korean(text) else "en"
+
+
+WHEN_TERMS = ["언제", "며칠", "날짜", "기간", "when ", "what date", "which date", "date of"]
+# 질문 내용어에서 뺄 일반어(어떤 행·일정을 고르는 데 도움이 안 되는 말). 조사·불용어는 textnorm 이 이미 뺀다
+_GENERIC = {"장학", "장학금", "학금", "교내", "교외", "받아", "받을", "받는", "혜택", "얼마", "얼마나", "있어", "학생", "대상",
+            "언제", "언제야", "일정", "학사일정", "날짜", "기간", "며칠", "알려줘", "scholarship", "scholarships", "when", "date",
+            "students", "student", "get", "there", "college", "program", "학교"}
+WHEN_TOKENS = {"언제", "언제야", "며칠", "날짜", "when", "date"}
+
+
+def _content_tokens(toks) -> set[str]:
+    return {t for t in toks if len(t) >= 2 and t not in _GENERIC and t not in textnorm.QUERY_STOPWORDS}
+
+
+def _is_bigram_of(tok: str, toks: set[str]) -> bool:
+    return len(tok) == 2 and any(len(o) > 2 and tok in o for o in toks)
+
+
+def _is_yes_no(text: str) -> bool:
+    low = text.strip().lower()
+    return bool(re.search(r"(있어|있나요|있을까|되나요|돼\?|되니|수 있어|받을 수|가능)", text)
+                or re.match(r"^(is|are|can|do|does|will)\b", low))
 
 
 def copula(word: str) -> str:

@@ -208,13 +208,69 @@ def _echoes_question(text: str, question: str | None) -> bool:
     return bool(question) and text.rstrip().endswith(("?", "？"))
 
 
+_HAN = re.compile(r"[\u4e00-\u9fff]")
+
+
+def wrong_language(text: str, lang: str | None) -> bool:
+    """v0.5.0: 요청 언어와 다른 글자로 쓴 주장. 영어 답이 한글 위주이거나 한자를 쓰면, 한국어 답이 한자를 쓰면 버린다.
+    (고유명 괄호 표기 '(종묘)'처럼 일부 섞인 것은 허용)"""
+    if not lang:
+        return False
+    if _HAN.search(text or ""):
+        return True
+    if lang == "en":
+        hangul = len(re.findall(r"[가-힣]", text)); latin = len(re.findall(r"[A-Za-z]", text))
+        return hangul > latin
+    return False
+
+
+def shares_content_with(text: str, cited_text: str) -> bool:
+    """v0.5.0: 한국어 주장은 인용 근거와 내용어(2글자 이상, 질문 불용어 제외)를 하나 이상 공유해야 한다."""
+    from .textnorm import QUERY_STOPWORDS, tokens
+    if key_values(text) or iso_dates(text):     # 날짜·숫자는 앞 단계에서 근거와 대조를 통과했다
+        return True
+    from .textnorm import normalize, strip_josa
+    # 주장 쪽은 원래 단어(조사만 뗀 형태)로만 비교한다. 2글자 조각까지 쓰면 '…합니다/드립니다'의 '니다'처럼 어미가 우연히 겹친다
+    claim = {b for w in normalize(text).split() for b in {w, strip_josa(w)} if len(b) >= 2 and b not in QUERY_STOPWORDS}
+    return bool(claim & set(tokens(cited_text)))
+
+
+_PREDICATE_END = ("갈", "할", "을", "볼", "올", "있", "없", "된", "돼", "해", "요", "다", "까", "니", "고", "며", "면", "서", "지", "게",
+                  "는", "은", "던", "줘", "봐", "가", "와", "어", "아", "야")
+
+
+def topic_words_supported(text: str, question: str | None, cited_text: str) -> list[str]:
+    """v0.5.0: 질문의 주제어(명사로 보이는 2글자 이상 단어)를 주장에서 썼다면 인용 근거에도 있어야 한다.
+    예) '졸업식 날짜 알려줘' → '졸업식은 2026-08-17' 이 '광복절 대체공휴일 2026-08-17'을 인용 → '졸업식'이 근거에 없어 버림.
+    동사·형용사로 보이는 단어(어미로 판단)는 비교하지 않는다. 빠진 주제어 목록을 돌려준다."""
+    if not question:
+        return []
+    from .textnorm import QUERY_STOPWORDS, normalize, strip_josa
+    src = normalize(cited_text).replace(" ", "")
+    q = {strip_josa(w) for w in normalize(question).split()}
+    missing = []
+    words = normalize(text).split()
+    for i, w in enumerate(words):
+        b = strip_josa(w)
+        nxt = words[i + 1] if i + 1 < len(words) else ""
+        if (len(b) < 2 or b not in q or b in QUERY_STOPWORDS or b in _TIME_WORDS or not re.fullmatch(r"[가-힣]+", b)
+                or b.endswith(_PREDICATE_END) or nxt in ("수", "것", "때", "줄")):   # '빌릴 수', '볼 것' → 동사
+            continue
+        if b not in src:
+            missing.append(b)
+    return missing
+
+
 def verify(claims: list[dict], evidences: list[Evidence], question: str | None = None,
            aliases: dict[str, list[str]] | None = None, glossary: dict[str, str] | None = None,
-           term_pattern: str | None = None) -> Verified:
+           term_pattern: str | None = None, lang: str | None = None) -> Verified:
     by_id = {ev.eid: ev for ev in evidences}
     out = Verified()
     for claim in claims:
         text = str(claim.get("text", "")).strip()
+        if wrong_language(text, lang):
+            out.dropped.append({"reason": "wrong_language", "claim": text[:200]})
+            continue
         if is_non_answer(text):
             out.dropped.append({"reason": "non_answer", "claim": text[:200]})
             continue
@@ -245,6 +301,10 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
             out.value_mismatches += 1
             out.dropped.append({"reason": "value_not_in_cited_source", "values": missing, "claim": text[:200]})
             continue
+        from .textnorm import is_korean
+        if is_korean(text) and not shares_content_with(text, cited_text):
+            out.dropped.append({"reason": "no_overlap_with_citation", "claim": text[:200]})
+            continue
         bad_terms = term_problems(text, " ".join(ev.text + " " + ev.title for ev, _ in good), glossary, term_pattern)
         if bad_terms:
             out.value_mismatches += 1
@@ -261,5 +321,26 @@ def verify(claims: list[dict], evidences: list[Evidence], question: str | None =
                 out.dropped.append({"reason": "echo_unsupported", "claim": text[:200]})
                 continue
             out.echo_claims.add(len(out.claims))
+        if is_korean(text):     # v0.5.0: 질문 주제어가 인용 근거에 없는 주장(되풀이 검사 뒤에 마지막으로)
+            missing_topic = topic_words_supported(text, question, cited_text)
+            if missing_topic:
+                out.echo_claims.discard(len(out.claims))
+                out.dropped.append({"reason": "topic_not_in_citation", "words": missing_topic, "claim": text[:200]})
+                continue
         out.claims.append((text, good))
     return out
+
+
+_SENT_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+def expand_quote(quote: str, source: str) -> str:
+    """검증을 통과한 짧은 발췌를, 화면에 보여 줄 원문 문장 전체로 넓힌다(v0.5.0 short 인용).
+    표 한 행이나 짧은 원문은 통째로, 그 밖에는 발췌가 들어 있는 문장. 못 찾으면 발췌 그대로."""
+    if len(source) <= 200 or (source.startswith("[") and " | " in source):
+        return source
+    q = _norm(quote).rstrip(_TRAIL)
+    for sent in _SENT_SPLIT.split(source):
+        if q and q in _norm(sent):
+            return sent.strip()
+    return quote

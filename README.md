@@ -6,7 +6,7 @@
 
 프로젝트별 명칭·조회 규칙은 어댑터에 두고, 엔진은 프로젝트 이름을 모른다. 세 번째 도메인(도서관, 합성)은 JSON 파일 등록만으로 검색된다.
 
-> 상태(2026-11-19, v0.4.0): 두 실제 앱(롤리폴리 식단 화면, MARU 아리 패널)에 연결해 **로컬 실연동**까지 확인했다(브라우저 → 앱 → 엔진 → DB, E2E 32/32). 스테이징·운영 배포와 유료 API 호출은 하지 않았다. 앱 저장소 변경은 이 세션에 push 권한이 없어 `reports/v0.4.0/patches/`의 패치로 남겼다. 인계: [reports/v0.4.0/INTEGRATION.md](reports/v0.4.0/INTEGRATION.md).
+> 상태(2026-11-20, v0.5.0): 두 실제 앱(롤리폴리 식단 화면, MARU 아리 패널)에 연결해 **로컬 실연동**까지 확인했다(브라우저 → 앱 → 엔진 → DB). 앱 PR: chanmini584-ux/LOLYPOLY#3, lovesome0405/ari#2. v0.5.0에서 **63문항 모두 10초 이내**(4코어 CPU, 최대 8.1초), 기본 모델을 상업 이용 제한 없는 `qwen2.5:1.5b`(Apache 2.0)로 바꿨다. 운영 위치는 롤리폴리 학교 PC로 정했고 설치 절차는 [deploy/windows/README.md](deploy/windows/README.md)(Windows 미검증). 스테이징·운영 배포와 유료 API 호출은 하지 않았다. 속도: [reports/v0.5.0/SPEED.md](reports/v0.5.0/SPEED.md), 인계: [reports/v0.4.0/INTEGRATION.md](reports/v0.4.0/INTEGRATION.md).
 
 ## 데이터 유형 (화면·인용에 표시)
 | 데이터 | 유형 | 내용 |
@@ -40,13 +40,15 @@ python -m venv .venv && .venv/bin/pip install -r requirements.lock
 ```
 ```bash
 .venv/bin/python scripts/fetch_e5.py            # e5-small ONNX 470MB, 리비전 고정 + sha256 대조
-docker compose --profile llm up -d ollama && docker compose exec ollama ollama pull qwen2.5:3b   # 약 1.9GB
+docker compose --profile llm up -d ollama && docker compose exec ollama ollama pull qwen2.5:1.5b   # 약 1.0GB, Apache 2.0
+docker compose exec ollama ollama pull qwen3:4b                                                   # 미리 만든 답(warm)용, 약 2.5GB
 ```
 ```bash
 export PYTHONPATH=src:.
 .venv/bin/python -m ragcore.cli ingest                                  # 적재(반복 실행해도 중복 없음)
 .venv/bin/python -m ragcore.cli ask --project lolypoly --as-of 2026-11-10T12:00 "오늘 점심 뭐야?"
 .venv/bin/python -m ragcore.cli eval --generate                         # 검색 비교 + 전체 응답 평가
+.venv/bin/python -m ragcore.cli warm                                    # 자주 묻는 질문 답 미리 만들기(v0.5.0, 밤 작업)
 .venv/bin/python -m pytest -q                                           # fake 모델 + 실제 pgvector
 .venv/bin/uvicorn ragcore.api:app --host 127.0.0.1 --port 8088          # API (로컬 바인딩)
 .venv/bin/python scripts/demo.py                                        # 3분 시연
@@ -55,7 +57,7 @@ export PYTHONPATH=src:.
 
 **Supabase 별도 DB**: `DATABASE_URL`만 Supabase 연결 문자열로 바꾸면 같은 `sql/schema.sql`이 적용된다(pgvector 확장 필요). 트랜잭션 풀러(포트 6543)면 prepared statement를 자동으로 끈다. 이번 세션에서 Supabase에 실제로 연결하지는 않았다.
 
-제약: e5 모델 다운로드 470MB, qwen2.5:3b 1.9GB(실행 중 메모리 약 2.4GB). 4코어 CPU에서 생성 1회는 약 15~70초 걸린다. 정형 조회와 보류 응답은 모델을 부르지 않아 수 ms 안에 끝난다.
+제약: e5 모델 다운로드 470MB, qwen2.5:1.5b 1.0GB. v0.5.0부터 생성은 8초 상한(`RAG_GEN_BUDGET_S`)이 있고 넘으면 근거 원문 발췌로 답한다. 정형 조회·미리 만든 답·보류 응답은 모델을 부르지 않아 수 ms 안에 끝난다. (v0.4.0까지의 qwen2.5:3b는 Qwen Research 비상업 라이선스라 기본값에서 뺐다.)
 
 ## API 계약
 - `POST /v1/chat` — 헤더 `Authorization: Bearer <앱 키>`. 서버가 `RAG_APP_KEYS`로 프로젝트 범위를 정한다. 본문 `{question, language?, context?}`. 범위 필드(`project` 등)를 넣으면 422로 거부한다.

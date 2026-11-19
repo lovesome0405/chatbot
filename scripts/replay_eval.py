@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
-from ragcore.generation import GenerationError, GenOutput  # noqa: E402
+from ragcore.generation import GenerationError, GenerationTimeout, GenOutput, parse_claims_json  # noqa: E402
 from ragcore.services import build  # noqa: E402
 
 
@@ -26,29 +26,32 @@ class ReplayGenerator:
     def __init__(self, original: dict, name: str):
         self.name = name
         # 같은 질문 문장이 여러 문항(기준 시각·맥락만 다름)에 있으므로 문항 순서대로 하나씩 꺼낸다
-        self.rows = [(r["question"], list(r.get("raw_outputs") or []), list(r.get("evidence_ids") or []))
-                     for r in original["full"]["results"]]
+        self.rows = [(r["question"], list(r.get("raw_outputs") or []), list(r.get("evidence_ids") or []),
+                      r.get("latency_ms") or 0) for r in original["full"]["results"]]
         self.queue, self.ev_ids = [], []
         self.changed: set[str] = set()
 
     def start(self, question):
-        q, raws, evs = self.rows.pop(0)
+        q, raws, evs, self.latency = self.rows.pop(0)
         assert q == question, (q, question)
         self.queue, self.ev_ids = raws, evs
 
-    def generate(self, question, language, evidences, today=None, persona=""):
+    def generate(self, question, language, evidences, today=None, persona="", budget_s=None):
         t = time.perf_counter()
         want = self.ev_ids
         got = [[ev.eid, ev.source_id, ev.locator] for ev in evidences]
         q = self.queue
         if not q:
+            # v0.5.0: 출력이 없고 원래 지연이 생성 상한(기본 8초) 가까이면 시간 초과였다
+            if self.latency >= 3000:   # 복합 질문은 상한을 부분 수로 나눔(8초 → 4초)
+                raise GenerationTimeout("replay: original run hit the generation budget")
             raise GenerationError("replay: original run had no model output for this part")
         expected = want.pop(0) if want else None
         if expected is not None and [list(e) for e in expected] != got:
             self.changed.add(question)
         raw = q.pop(0)
         try:
-            data = json.loads(raw)
+            data = parse_claims_json(raw)
         except json.JSONDecodeError as exc:   # 저장 시 2000자로 잘린 출력
             self.changed.add(question)
             raise GenerationError(f"replay: stored output not parseable ({exc})") from exc

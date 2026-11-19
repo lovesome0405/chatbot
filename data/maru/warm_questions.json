@@ -1,0 +1,273 @@
+{
+ "_comment": "아리 빠른 질문(ari app.js ARI_QUICK_QUESTIONS 4개 언어). 일본어·중국어 화면은 language=en 으로 보내므로 같은 뜻의 영어 문장(ask_as)으로 답을 만들어 둔다",
+ "items": [
+  {
+   "question": "처음 서울 오는데 어디부터 가면 좋아?",
+   "language": "ko",
+   "context": {}
+  },
+  {
+   "question": "비 오는 날 어디가 좋아?",
+   "language": "ko",
+   "context": {}
+  },
+  {
+   "question": "많이 걷지 않는 코스도 있어?",
+   "language": "ko",
+   "context": {}
+  },
+  {
+   "question": "영어 안내 가능한 곳 있어?",
+   "language": "ko",
+   "context": {}
+  },
+  {
+   "question": "It is my first time in Seoul. Where should I start?",
+   "language": "en",
+   "context": {}
+  },
+  {
+   "question": "Where is good on a rainy day?",
+   "language": "en",
+   "context": {}
+  },
+  {
+   "question": "Is there a route with less walking?",
+   "language": "en",
+   "context": {}
+  },
+  {
+   "question": "Which places may have English support?",
+   "language": "en",
+   "context": {}
+  },
+  {
+   "question": "初めてソウルに来たけど、どこから回ればいい？",
+   "language": "en",
+   "context": {},
+   "ask_as": "It is my first time in Seoul. Where should I start?"
+  },
+  {
+   "question": "雨の日はどこがいい？",
+   "language": "en",
+   "context": {},
+   "ask_as": "Where is good on a rainy day?"
+  },
+  {
+   "question": "あまり歩かないコースはある？",
+   "language": "en",
+   "context": {},
+   "ask_as": "Is there a route with less walking?"
+  },
+  {
+   "question": "英語案内がある場所は？",
+   "language": "en",
+   "context": {},
+   "ask_as": "Which places may have English support?"
+  },
+  {
+   "question": "我第一次来首尔，应该先去哪里？",
+   "language": "en",
+   "context": {},
+   "ask_as": "It is my first time in Seoul. Where should I start?"
+  },
+  {
+   "question": "雨天适合去哪里？",
+   "language": "en",
+   "context": {},
+   "ask_as": "Where is good on a rainy day?"
+  },
+  {
+   "question": "有没有少走路一点的路线？",
+   "language": "en",
+   "context": {},
+   "ask_as": "Is there a route with less walking?"
+  },
+  {
+   "question": "哪些地方可能有英语信息？",
+   "language": "en",
+   "context": {},
+   "ask_as": "Which places may have English support?"
+  },
+  {
+   "question": "이 코스가 왜 추천됐어?",
+   "language": "ko",
+   "context": {
+    "course_id": "palace-history-course"
+   }
+  },
+  {
+   "question": "Why is this route recommended?",
+   "language": "en",
+   "context": {
+    "course_id": "palace-history-course"
+   }
+  },
+  {
+   "question": "このコースはなぜおすすめ？",
+   "language": "en",
+   "context": {
+    "course_id": "palace-history-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "为什么推荐这条路线？",
+   "language": "en",
+   "context": {
+    "course_id": "palace-history-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "이 코스가 왜 추천됐어?",
+   "language": "ko",
+   "context": {
+    "course_id": "bukchon-hanok-culture-course"
+   }
+  },
+  {
+   "question": "Why is this route recommended?",
+   "language": "en",
+   "context": {
+    "course_id": "bukchon-hanok-culture-course"
+   }
+  },
+  {
+   "question": "このコースはなぜおすすめ？",
+   "language": "en",
+   "context": {
+    "course_id": "bukchon-hanok-culture-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "为什么推荐这条路线？",
+   "language": "en",
+   "context": {
+    "course_id": "bukchon-hanok-culture-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "이 코스가 왜 추천됐어?",
+   "language": "ko",
+   "context": {
+    "course_id": "insadong-craft-course"
+   }
+  },
+  {
+   "question": "Why is this route recommended?",
+   "language": "en",
+   "context": {
+    "course_id": "insadong-craft-course"
+   }
+  },
+  {
+   "question": "このコースはなぜおすすめ？",
+   "language": "en",
+   "context": {
+    "course_id": "insadong-craft-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "为什么推荐这条路线？",
+   "language": "en",
+   "context": {
+    "course_id": "insadong-craft-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "이 코스가 왜 추천됐어?",
+   "language": "ko",
+   "context": {
+    "course_id": "traditional-market-food-course"
+   }
+  },
+  {
+   "question": "Why is this route recommended?",
+   "language": "en",
+   "context": {
+    "course_id": "traditional-market-food-course"
+   }
+  },
+  {
+   "question": "このコースはなぜおすすめ？",
+   "language": "en",
+   "context": {
+    "course_id": "traditional-market-food-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "为什么推荐这条路线？",
+   "language": "en",
+   "context": {
+    "course_id": "traditional-market-food-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "이 코스가 왜 추천됐어?",
+   "language": "ko",
+   "context": {
+    "course_id": "night-traditional-culture-course"
+   }
+  },
+  {
+   "question": "Why is this route recommended?",
+   "language": "en",
+   "context": {
+    "course_id": "night-traditional-culture-course"
+   }
+  },
+  {
+   "question": "このコースはなぜおすすめ？",
+   "language": "en",
+   "context": {
+    "course_id": "night-traditional-culture-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "为什么推荐这条路线？",
+   "language": "en",
+   "context": {
+    "course_id": "night-traditional-culture-course"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "이 코스가 왜 추천됐어?",
+   "language": "ko",
+   "context": {
+    "course_id": "rainy-day-indoor-heritage"
+   }
+  },
+  {
+   "question": "Why is this route recommended?",
+   "language": "en",
+   "context": {
+    "course_id": "rainy-day-indoor-heritage"
+   }
+  },
+  {
+   "question": "このコースはなぜおすすめ？",
+   "language": "en",
+   "context": {
+    "course_id": "rainy-day-indoor-heritage"
+   },
+   "ask_as": "Why is this route recommended?"
+  },
+  {
+   "question": "为什么推荐这条路线？",
+   "language": "en",
+   "context": {
+    "course_id": "rainy-day-indoor-heritage"
+   },
+   "ask_as": "Why is this route recommended?"
+  }
+ ]
+}

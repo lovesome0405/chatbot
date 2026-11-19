@@ -1,0 +1,808 @@
+{
+ "meta": {
+  "run_at": "2026-11-20T08:24:58+09:00",
+  "questions": 13,
+  "by_project": {
+   "maru": 5,
+   "lolypoly": 8
+  },
+  "embedder": "multilingual-e5-small@614241f",
+  "generator": "ollama:qwen2.5:1.5b",
+  "chunker": "v1-2026-11-17",
+  "settings": {
+   "keyword_top_n": 10,
+   "vector_top_n": 10,
+   "rrf_k": 60,
+   "final_top_k": 4
+  },
+  "vector_min_sim": 0.8,
+  "environment": {
+   "python": "3.13.18",
+   "machine": "x86_64",
+   "cpus": 4,
+   "platform": "Linux-6.18.44-fc-v653-x86_64-with-glibc2.39"
+  }
+ },
+ "retrieval": {
+  "definition": "Hit@3 = 상위 3개 원본 ID(조각을 원본 단위로 접음) 중 기대 출처가 하나라도 있으면 1. 대상: 기대 경로=document, 기대 출처 있음, 기간 만료 의도 제외",
+  "modes": {
+   "hybrid": {
+    "hit_at_3": 0,
+    "denominator": 0,
+    "rate": null,
+    "mrr_at_10": null,
+    "mean_latency_ms": null
+   },
+   "ari_baseline": {
+    "hit_at_3": 0,
+    "denominator": 0,
+    "rate": null,
+    "mrr_at_10": null,
+    "mean_latency_ms": null
+   }
+  },
+  "per_question": [],
+  "table_row_hit_at_3": {
+   "hybrid": 0,
+   "denominator": 0,
+   "definition": "상위 3개 조각 중 기대 행(locator)이 있는지. 장학표 행 섞임 점검용"
+  },
+  "maru_subset": {
+   "hybrid": 0,
+   "ari_baseline": 0,
+   "denominator": 0
+  },
+  "maru_ari_comparable_subset": {
+   "hybrid": 0,
+   "ari_baseline": 0,
+   "denominator": 0,
+   "note": "Ari 기준선 코퍼스(장소·코스)에 기대 출처가 있는 질문만"
+  }
+ },
+ "full": {
+  "summary": {
+   "route_accuracy": {
+    "ok": 10,
+    "denominator": 13,
+    "rate": 0.769
+   },
+   "status_accuracy": {
+    "ok": 10,
+    "denominator": 13,
+    "rate": 0.769
+   },
+   "structured_accuracy": {
+    "ok": 10,
+    "denominator": 13,
+    "rate": 0.769
+   },
+   "abstention_correct": {
+    "ok": 0,
+    "denominator": 0,
+    "rate": null
+   },
+   "false_abstentions": {
+    "count": 2,
+    "denominator": 13
+   },
+   "key_facts_in_answer_or_quotes(auto proxy)": {
+    "ok": 11,
+    "denominator": 11,
+    "rate": 1.0
+   },
+   "gold_source_cited_when_answered": {
+    "ok": 0,
+    "denominator": 0,
+    "rate": null
+   },
+   "cross_project_leaks": 0,
+   "invalid_citation_ids_returned": 0,
+   "unknown_ids_produced_by_model(dropped)": 0,
+   "quote_misses(dropped)": 1,
+   "value_mismatches(dropped)": 1,
+   "detail_answers_from_title_only_or_expired": 0,
+   "english_answers_in_english": {
+    "ok": 0,
+    "denominator": 0,
+    "rate": null
+   },
+   "echo_like_model_claims": {
+    "echo": 0,
+    "denominator": 0,
+    "examples": []
+   },
+   "model_echo_claims_enriched": 0,
+   "korean_model_claims_haeyo": {
+    "ok": 0,
+    "denominator": 0,
+    "rate": null
+   },
+   "model_calls_total": 2,
+   "latency_ms": {
+    "mean": 1009.6,
+    "p50": 3.3,
+    "p95": 6250.1,
+    "max": 6832.1
+   },
+   "failures": [
+    {
+     "id": "P05",
+     "expected": [
+      "answered"
+     ],
+     "got": "partial",
+     "route": "composite",
+     "key_facts_ok": true,
+     "answer": "복지 장학금 — eligibility: ‘국가장학금 수혜자’; benefit: 해당학기 교육비 내에서 예산범위 내 지급; note: 직전학기 성적 2.5이상. [1]\n[Partly unconfirmed] I couldn't find this in the verified sources. Only the title of this notice was collec"
+    },
+    {
+     "id": "P08",
+     "expected": [
+      "answered"
+     ],
+     "got": "insufficient_evidence",
+     "route": "document",
+     "key_facts_ok": true,
+     "answer": "확인된 자료에서는 찾지 못했어요. [1][2][3]"
+    },
+    {
+     "id": "P13",
+     "expected": [
+      "answered"
+     ],
+     "got": "insufficient_evidence",
+     "route": "document",
+     "key_facts_ok": false,
+     "answer": "I couldn't find this in the verified sources. [1][2][3]"
+    }
+   ]
+  },
+  "results": [
+   {
+    "id": "P01",
+    "project": "lolypoly",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "학과에서 1등으로 입학하면 어떤 장학 혜택이 있어?",
+    "language": "ko",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 2.9,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "네, 성적우수 장학금(‘학과수석 입학자 1명’)는 1년간 교육비 전액면제예요. 비고: 직전학기 성적 3.0이상. [1]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 학과수석 입학자 1명 | 지급액 및 기간: 1년간 교육비 전액면제 | 비고: 직전학기 성적 3.0이상",
+      "note": "표 행(서버 조회)",
+      "locator": "장학제도 표 > 행 2 (교내 / 성적우수 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "P02",
+    "project": "lolypoly",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "근로 장학금은 얼마나 줘?",
+    "language": "ko",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 2.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "근로 장학금(‘대학 운영에 일정기간의 근로를 제공한 자’)는 해당학기 교육비의 반액 지급이에요. 비고: 직전학기 성적 3.0이상. [1]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 근로 장학금 | 수혜자격: 대학 운영에 일정기간의 근로를 제공한 자 | 지급액 및 기간: 해당학기 교육비의 반액 지급 | 비고: 직전학기 성적 3.0이상",
+      "note": "표 행(서버 조회)",
+      "locator": "장학제도 표 > 행 8 (교내 / 근로 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "P03",
+    "project": "lolypoly",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "보훈 대상자 장학금 조건 알려줘",
+    "language": "ko",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 1.7,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "보훈 및 북한이탈주민 장학금(‘보훈관계법령에 의한 교육보호 대상자’)는 교육비의 액수에 해당관청에서 지급한 장학금의 차액 면제예요. 비고: 해당관청 성적 기준. [1]\n보훈 및 북한이탈주민 장학금(‘북한이탈주민 교육지원 대상자’)는 교육비의 액수에 해당관청에서 지급한 장학금의 차액 면제예요. 비고: 해당관청 성적 기준. [2]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 보훈 및 북한이탈주민 장학금 | 수혜자격: 보훈관계법령에 의한 교육보호 대상자 | 지급액 및 기간: 교육비의 액수에 해당관청에서 지급한 장학금의 차액 면제 | 비고: 해당관청 성적 기준",
+      "note": "표 행(서버 조회)",
+      "locator": "장학제도 표 > 행 4 (교내 / 보훈 및 북한이탈주민 장학금)"
+     },
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 보훈 및 북한이탈주민 장학금 | 수혜자격: 북한이탈주민 교육지원 대상자 | 지급액 및 기간: 교육비의 액수에 해당관청에서 지급한 장학금의 차액 면제 | 비고: 해당관청 성적 기준",
+      "note": "표 행(서버 조회)",
+      "locator": "장학제도 표 > 행 5 (교내 / 보훈 및 북한이탈주민 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "P04",
+    "project": "lolypoly",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "의용소방대 장학금 있어?",
+    "language": "ko",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 2.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "네, 의용소방대 장학금(‘의용소방대 추천자’)는 별도 규정에 따라 지급돼요. [1]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교외 | 종류: 의용소방대 장학금 | 수혜자격: 의용소방대 추천자 | 지급액 및 기간: 별도 규정",
+      "note": "표 행(서버 조회)",
+      "locator": "장학제도 표 > 행 11 (교외 / 의용소방대 장학금)"
+     }
+    ]
+   },
+   {
+    "id": "P05",
+    "project": "lolypoly",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "Which scholarship can national scholarship recipients also get?",
+    "language": "en",
+    "route": "composite",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "partial",
+    "route_ok": false,
+    "status_ok": false,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 14.8,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "복지 장학금 — eligibility: ‘국가장학금 수혜자’; benefit: 해당학기 교육비 내에서 예산범위 내 지급; note: 직전학기 성적 2.5이상. [1]\n[Partly unconfirmed] I couldn't find this in the verified sources. Only the title of this notice was collected, so the details can't be confirmed. Please check the original link. [2][3][4]",
+    "citations": [
+     {
+      "source_id": "kopo-4799-scholarship",
+      "quote": "[장학제도 표] 구분: 교내 | 종류: 복지 장학금 | 수혜자격: 국가장학금 수혜자 | 지급액 및 기간: 해당학기 교육비 내에서 예산범위 내 지급 | 비고: 직전학기 성적 2.5이상",
+      "note": "표 행(서버 조회)",
+      "locator": "장학제도 표 > 행 7 (교내 / 복지 장학금)"
+     },
+     {
+      "source_id": "notice:772890",
+      "quote": "[학사] [학위] (★중요) 학사 안내 가이드 공지",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:784821",
+      "quote": "[학사] [학위] 2026학년도 2학기 중간평가 알림",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     },
+     {
+      "source_id": "notice:782660",
+      "quote": "[학사] [학위] 미등록휴학기간 알림",
+      "note": "제목만 있음",
+      "locator": "공지 제목(본문 미수집)"
+     }
+    ]
+   },
+   {
+    "id": "P06",
+    "project": "lolypoly",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "하이테크과정 기말시험 언제야?",
+    "language": "ko",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 5.6,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "- 기말시험 (하이테크과정): 2026-06-22~2026-06-26 (지난 일정) [1]",
+    "citations": [
+     {
+      "source_id": "event:하이테크과정:기말시험:2026-06-22:2026-06-26",
+      "quote": "학사일정 기말시험 | 과정: 하이테크과정 | 기간: 2026-06-22 ~ 2026-06-26",
+      "note": null,
+      "locator": "학사일정 > 기말시험"
+     }
+    ]
+   },
+   {
+    "id": "P07",
+    "project": "lolypoly",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "식당 몇 시까지 해?",
+    "language": "ko",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 0.9,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "학생식당 주중: 아침 08:00 - 08:50, 점심 11:50 - 13:20, 저녁 17:30 - 18:20 [1]",
+    "citations": [
+     {
+      "source_id": "meal-hours",
+      "quote": "[학생식당 식사시간표] 구분: 주중 | 아침: 08:00 - 08:50 | 점심: 11:50 - 13:20 | 저녁: 17:30 - 18:20",
+      "note": "식사시간표(확인 시각 기준)",
+      "locator": "학생식당 식사시간표 > 행 1 (주중 / 08:00 - 08:50)"
+     }
+    ]
+   },
+   {
+    "id": "P08",
+    "project": "lolypoly",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "겨울 방학은 언제 시작해?",
+    "language": "ko",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": false,
+    "status_ok": false,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 6832.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 1,
+    "echo_enriched": 0,
+    "dropped": [
+     {
+      "reason": "value_not_in_cited_source",
+      "values": [
+       "11"
+      ],
+      "claim": "겨울 방학은 2026년 11월 17일부터 시작됩니다."
+     }
+    ],
+    "raw_outputs": [
+     "{\"claims\": [{\"text\": \"겨울 방학은 2026년 11월 17일부터 시작됩니다.\", \"citations\": [{\"id\": \"E1\", \"quote\": \"학사일정 하계방학 | 과정: 2년제학위과정 | 기간: 2026-06-27 ~ 2026-08-17\"}]}]}"
+    ],
+    "evidence_ids": [
+     [
+      [
+       "E1",
+       "event:2년제학위과정:하계방학:2026-06-27:2026-08-17",
+       "학사일정 > 하계방학"
+      ],
+      [
+       "E2",
+       "event:P-TECH:동계방학(1학년):2025-12-21:2026-03-06",
+       "학사일정 > 동계방학(1학년)"
+      ],
+      [
+       "E3",
+       "event:2년제학위과정:동계방학:2027-01-13:2027-03-01",
+       "학사일정 > 동계방학"
+      ],
+      [
+       "E4",
+       "event:P-TECH:동계방학:2027-01-24:2027-02-02",
+       "학사일정 > 동계방학"
+      ]
+     ]
+    ],
+    "answer": "확인된 자료에서는 찾지 못했어요. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "event:2년제학위과정:하계방학:2026-06-27:2026-08-17",
+      "quote": "학사일정 하계방학 | 과정: 2년제학위과정 | 기간: 2026-06-27 ~ 2026-08-17",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "학사일정 > 하계방학"
+     },
+     {
+      "source_id": "event:P-TECH:동계방학(1학년):2025-12-21:2026-03-06",
+      "quote": "학사일정 동계방학(1학년) | 과정: P-TECH | 기간: 2025-12-21 ~ 2026-03-06",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "학사일정 > 동계방학(1학년)"
+     },
+     {
+      "source_id": "event:2년제학위과정:동계방학:2027-01-13:2027-03-01",
+      "quote": "학사일정 동계방학 | 과정: 2년제학위과정 | 기간: 2027-01-13 ~ 2027-03-01",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "학사일정 > 동계방학"
+     }
+    ]
+   },
+   {
+    "id": "P09",
+    "project": "maru",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "창덕궁 소개해줘",
+    "language": "ko",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 4.6,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "창덕궁(Changdeokgung Palace)은 종로구에 있는 궁궐이에요. 자연 지형과 궁궐 건축이 조화롭게 이어지는 조선 궁궐입니다. [1][2]",
+    "citations": [
+     {
+      "source_id": "place:changdeokgung-palace",
+      "quote": "창덕궁 (Changdeokgung Palace) — 궁궐 / 종로구",
+      "note": "장소 정보(앱 데이터)",
+      "locator": "창덕궁 (Changdeokgung Palace) > 문단 1"
+     },
+     {
+      "source_id": "place:changdeokgung-palace",
+      "quote": "자연 지형과 궁궐 건축이 조화롭게 이어지는 조선 궁궐입니다.",
+      "note": "장소 설명(앱 데이터)",
+      "locator": "창덕궁 (Changdeokgung Palace) > 문단 3"
+     }
+    ]
+   },
+   {
+    "id": "P10",
+    "project": "maru",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "Tell me about Bukchon Hanok Village",
+    "language": "en",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 3.6,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "Bukchon Hanok Village (북촌한옥마을) is a hanok village in Jongno-gu, Seoul. A famous hanok neighborhood where traditional rooflines meet Seoul's city streets. [1][2]",
+    "citations": [
+     {
+      "source_id": "place:bukchon-hanok-village",
+      "quote": "English (app data): Bukchon Hanok Village — Hanok Village. A famous hanok neighborhood where traditional rooflines meet Seoul's city streets. Visit tip: It is a residential area, so walk quietly and follow photo etiquette.",
+      "note": "장소 정보(앱 데이터)",
+      "locator": "북촌한옥마을 (Bukchon Hanok Village) > 문단 8"
+     },
+     {
+      "source_id": "place:bukchon-hanok-village",
+      "quote": "북촌한옥마을 (Bukchon Hanok Village) — 한옥마을 / 종로구",
+      "note": "장소 정보(앱 데이터)",
+      "locator": "북촌한옥마을 (Bukchon Hanok Village) > 문단 1"
+     }
+    ]
+   },
+   {
+    "id": "P11",
+    "project": "maru",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "What is this place?",
+    "language": "en",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 3.3,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "Deoksugung Palace (덕수궁) is a palace in Jung-gu, Seoul. A palace where Korean Empire history and modern Seoul meet. [1][2]",
+    "citations": [
+     {
+      "source_id": "place:deoksugung-palace",
+      "quote": "English (app data): Deoksugung Palace — Palace. A palace where Korean Empire history and modern Seoul meet. Visit tip: Plan it with the stonewall road, Jeongdong-gil, and nearby museums.",
+      "note": "장소 정보(앱 데이터)",
+      "locator": "덕수궁 (Deoksugung Palace) > 문단 8"
+     },
+     {
+      "source_id": "place:deoksugung-palace",
+      "quote": "덕수궁 (Deoksugung Palace) — 궁궐 / 중구",
+      "note": "장소 정보(앱 데이터)",
+      "locator": "덕수궁 (Deoksugung Palace) > 문단 1"
+     }
+    ]
+   },
+   {
+    "id": "P12",
+    "project": "maru",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "궁궐 역사 산책 코스는 어떤 코스야?",
+    "language": "ko",
+    "route": "structured",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
+    "answerable": "full",
+    "key_facts_ok": true,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 0,
+    "latency_ms": 1.5,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 0,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "궁궐 역사 산책 코스는 조선 왕실 문화와 서울의 역사적 중심지를 자연스럽게 경험할 수 있는 첫 방문자용 대표 코스입니다. 순서는 국립고궁박물관 → 경복궁 → 국립민속박물관이에요. [1][2]",
+    "citations": [
+     {
+      "source_id": "course:palace-history-course",
+      "quote": "궁궐 역사 산책 코스 (Royal Palace History Walk): 조선 왕실 문화와 서울의 역사적 중심지를 자연스럽게 경험할 수 있는 첫 방문자용 대표 코스입니다.",
+      "note": "코스 정보(앱 데이터)",
+      "locator": "궁궐 역사 산책 코스 > 문단 1"
+     },
+     {
+      "source_id": "course:palace-history-course",
+      "quote": "코스 순서: 국립고궁박물관 → 경복궁 → 국립민속박물관",
+      "note": "코스 정보(앱 데이터)",
+      "locator": "궁궐 역사 산책 코스 > 문단 2"
+     }
+    ]
+   },
+   {
+    "id": "P13",
+    "project": "maru",
+    "tags": [
+     "v050_holdout"
+    ],
+    "expected_route": "structured",
+    "question": "What is the Rainy Day Indoor Heritage course like?",
+    "language": "en",
+    "route": "document",
+    "expected_status": [
+     "answered"
+    ],
+    "status": "insufficient_evidence",
+    "route_ok": false,
+    "status_ok": false,
+    "answerable": "full",
+    "key_facts_ok": false,
+    "gold_cited": null,
+    "leaks": [],
+    "model_calls": 1,
+    "latency_ms": 6250.1,
+    "unknown_ids_from_model": 0,
+    "quote_misses": 1,
+    "value_mismatches": 0,
+    "echo_enriched": 0,
+    "dropped": [
+     {
+      "reason": "quote_not_in_source",
+      "eid": "E1",
+      "claim": "Rainy-Day Indoor Heritage course: Visitors can learn about Korean culture through indoor exhibitions and short movements, helping them understand traditional practices during rain or heat.",
+      "quote": "Rainy-Day Indoor Traditional Culture Course: This backup route helps visitors understand Korean tradition through indoor exhibitions and short movements during rain or heat.",
+      "source_text": "키워드: Indoor Heritage — 날씨 영향을 줄이면서 전시와 해설로 문화를 이해하는 방식입니다.; Rainy-Day Plan — 우천 시 외국인 방문객이 이동 부담을 줄일 수 있는 대체 동선입니다."
+     }
+    ],
+    "raw_outputs": [
+     "{\"claims\": [{\"text\": \"Rainy-Day Indoor Heritage course: Visitors can learn about Korean culture through indoor exhibitions and short movements, helping them understand traditional practices during rain or heat.\", \"citations\": [{\"id\": \"E1\", \"quote\": \"Rainy-Day Indoor Traditional Culture Course: This backup route helps visitors understand Korean tradition through indoor exhibitions and short movements during rain or heat.\"}]}]}"
+    ],
+    "evidence_ids": [
+     [
+      [
+       "E1",
+       "course:rainy-day-indoor-heritage",
+       "비 오는 날 실내 전통문화 코스 > 문단 5"
+      ],
+      [
+       "E2",
+       "course:rainy-day-indoor-heritage",
+       "비 오는 날 실내 전통문화 코스 > 문단 1"
+      ],
+      [
+       "E3",
+       "course:rainy-day-indoor-heritage",
+       "비 오는 날 실내 전통문화 코스 > 문단 7"
+      ],
+      [
+       "E4",
+       "course:rainy-day-indoor-heritage",
+       "비 오는 날 실내 전통문화 코스 > 문단 3"
+      ]
+     ]
+    ],
+    "answer": "I couldn't find this in the verified sources. [1][2][3]",
+    "citations": [
+     {
+      "source_id": "course:rainy-day-indoor-heritage",
+      "quote": "키워드: Indoor Heritage — 날씨 영향을 줄이면서 전시와 해설로 문화를 이해하는 방식입니다.; Rainy-Day Plan — 우천 시 외국인 방문객이 이동 부담을 줄일 수 있는 대체 동선입니다.",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "비 오는 날 실내 전통문화 코스 > 문단 5"
+     },
+     {
+      "source_id": "course:rainy-day-indoor-heritage",
+      "quote": "비 오는 날 실내 전통문화 코스 (Rainy-Day Indoor Traditional Culture Course): 비가 오거나 더운 날에도 실내 전시와 짧은 동선 중심으로 전통문화를 이해할 수 있는 대체 코스입니다",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "비 오는 날 실내 전통문화 코스 > 문단 1"
+     },
+     {
+      "source_id": "course:rainy-day-indoor-heritage",
+      "quote": "English (app data): Rainy-Day Indoor Traditional Culture Course: This backup route helps visitors understand Korean trad",
+      "note": "관련 원문(답변 근거 아님)",
+      "locator": "비 오는 날 실내 전통문화 코스 > 문단 7"
+     }
+    ]
+   }
+  ]
+ }
+}

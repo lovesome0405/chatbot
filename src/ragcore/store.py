@@ -217,6 +217,31 @@ class PgStore:
             (project, collection),
         ).fetchall()
 
+    # ── 미리 만든 답(v0.5.0) ───────────────
+    def data_version(self, project: str) -> str:
+        """프로젝트 공개 문서 전체의 내용 버전. 적재로 문서가 바뀌면 값이 바뀌어 이전 캐시를 쓰지 않는다."""
+        row = self.conn.execute(
+            "select md5(coalesce(string_agg(source_id || ':' || version, ',' order by source_id), '')) as v "
+            "from rag_document where project=%s and is_public", (project,)).fetchone()
+        return row["v"]
+
+    def cache_get(self, project: str, key: str, version: str) -> dict | None:
+        row = self.conn.execute(
+            "update rag_answer_cache set hits = hits + 1 where project=%s and cache_key=%s and data_version=%s returning payload",
+            (project, key, version)).fetchone()
+        return row["payload"] if row else None
+
+    def cache_put(self, project: str, key: str, version: str, payload: dict, source: str = "live"):
+        self.conn.execute(
+            """insert into rag_answer_cache (project, cache_key, data_version, payload, source) values (%s, %s, %s, %s, %s)
+               on conflict (project, cache_key) do update set data_version=excluded.data_version, payload=excluded.payload,
+                 source=excluded.source, created_at=now(), hits=0""",
+            (project, key, version, Jsonb(payload), source))
+
+    def cache_clear(self, project: str | None = None) -> int:
+        cur = self.conn.execute("delete from rag_answer_cache where %s::text is null or project=%s", (project, project))
+        return cur.rowcount
+
     def first_chunk(self, document_id: int) -> dict | None:
         return self.conn.execute(
             "select id as chunk_id, locator, text, structured from rag_chunk where document_id=%s order by chunk_key limit 1",

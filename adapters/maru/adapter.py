@@ -120,10 +120,16 @@ class MaruAdapter(Adapter):
                     f"실내/실외: {r.get('indoorOutdoor', '')}, 걷기 난이도: {r.get('walkingLevel', '')}",
                 ]
                 path = "ari_culture_resources_appjs.json"
+            en = (f"English (app data): {r['nameEn']} — {r.get('categoryEn', '')}. {r.get('aiSimpleExplanationEn', '')} "
+                  f"Visit tip: {r.get('aiVisitTipEn', '')}".strip() if "_course_place" not in r and r.get("aiSimpleExplanationEn")
+                  else (f"English (app data): {r['_course_place']['name']['en']}. {r['_course_place']['description'].get('en', '')}"
+                        if "_course_place" in r and r["_course_place"]["description"].get("en") else ""))
             if pid in heritage:
                 h = heritage[pid]
                 paras.append(f"해설 키워드: {', '.join(h.get('interpretationKeywords', []))}. 해설 역할: {h.get('aiInterpretationRole', '')}")
             paras = [x for x in paras if x and not x.endswith(": ")]
+            if en:   # v0.5.0: 앱 데이터의 영어 설명도 같은 문서의 문단으로 색인(영어 질문 검색·영어 소개 답의 인용 원문)
+                paras.append(en)
             title = f"{r['nameKo']} ({r['nameEn']})"
             docs.append(Document(
                 project=PROJECT, source_id=f"place:{pid}", collection="places", title=title, body="\n\n".join(paras),
@@ -142,6 +148,8 @@ class MaruAdapter(Adapter):
                 "키워드: " + "; ".join(f"{k['name']} — {k['description']['ko']}" for k in c.get("keywords", [])),
                 f"소요 시간: {c.get('duration', '')}, 걷기: {c['walking']['ko']}, 비용 수준: {c['fee']['ko']}",
             ]
+            if c["aiSummary"].get("en"):
+                paras.append(f"English (app data): {c['title']['en']}: {c['aiSummary']['en']}")
             docs.append(Document(
                 project=PROJECT, source_id=f"course:{cid}", collection="courses", title=f"{c['title']['ko']} ({c['title']['en']})",
                 body="\n\n".join(paras), url=GITHUB.format(commit=self.commit, path="data/courses.json"), language="ko",
@@ -202,6 +210,15 @@ class MaruAdapter(Adapter):
         detail = has_any(low, DETAIL_TERMS)
         if has_any(low, RANKING_TERMS):
             return Part("structured", text, "ranking", params={"ids": ctx.get("ranked_route_ids", [])})
+        intro = bool(INTRO_RE.search(text)) and not ts and not detail
+        if intro:   # v0.5.0: 장소·코스 '소개' 질문은 앱 데이터 필드로 바로 답한다(모델 0회)
+            cid = ctx.get("course_id") if has_any(low, COURSE_REF) else self._named_course(low)
+            if cid:
+                return Part("structured", text, "course_intro", params={"course_id": cid})
+            pid = self._named_place(low) or (ctx.get("place_id") if PLACE_REF_RE.search(text) or re.search(
+                r"\b(this place|here|there)\b", low) else None)
+            if pid:
+                return Part("structured", text, "place_intro", params={"place_id": pid})
         if has_any(low, COURSE_REF):
             cid = ctx.get("course_id")
             if not cid:
@@ -224,6 +241,78 @@ class MaruAdapter(Adapter):
                 q = "어느 장소를 말씀하시는지 알려 주실래요?" if lang == "ko" else "Which place do you mean?"
                 return Part("clarify", text, "place_ref", clarify=q)
         return Part("document", text, "doc", time_sensitive=ts, needs_detail=detail)
+
+    def _named_place(self, low: str) -> str | None:
+        """질문에 장소 이름(한국어·영어)이 하나만 들어 있으면 그 ID. 가장 긴 이름 기준, 여러 곳이면 None."""
+        hits = []
+        for pid, r in self._places.items():
+            for n in (r.get("nameKo"), r.get("nameEn")):
+                if n and n.lower() in low:
+                    hits.append((len(n), pid))
+        if not hits:
+            return None
+        hits.sort(reverse=True)
+        longest = hits[0][0]
+        ids = {pid for ln, pid in hits if ln == longest}
+        return ids.pop() if len(ids) == 1 else None
+
+    def _named_course(self, low: str) -> str | None:
+        ids = [cid for cid, c in self._courses.items() if c["title"]["ko"] in low or c["title"]["en"].lower() in low]
+        return ids[0] if len(ids) == 1 else None
+
+    def _chunks_of(self, store, collection: str, source_id: str) -> dict[str, dict]:
+        return {r["locator"].rsplit("> ", 1)[-1]: r for r in store.chunks(PROJECT, collection) if r["source_id"] == source_id}
+
+    def _place_intro(self, part: Part, store, lang: str) -> PartResult | None:
+        pid = part.params["place_id"]
+        r = self._places.get(pid)
+        chunks = self._chunks_of(store, "places", f"place:{pid}")
+        if not r or not chunks:
+            return None
+        first = chunks.get("문단 1")
+        en = next((c for c in chunks.values() if c["text"].startswith("English (app data)")), None)
+        if "_course_place" in r:
+            cp = r["_course_place"]
+            cat_ko, cat_en = cp.get("category", ""), cp.get("category", "")
+            m = re.search(r"(\S+구)", cp.get("address", ""))
+            gu = m.group(1) if m else ""
+            expl_ko, expl_en = cp["description"]["ko"], cp["description"].get("en", "")
+        else:
+            cat_ko, cat_en, gu = r.get("category", ""), r.get("categoryEn", ""), r.get("district", "")
+            expl_ko, expl_en = r.get("aiSimpleExplanation", ""), r.get("aiSimpleExplanationEn", "")
+        if lang == "ko":
+            src = next((c for c in chunks.values() if expl_ko and expl_ko in c["text"]), first)
+            where = f"{gu}에 있는 " if gu else ""
+            txt = f"{r['nameKo']}({r['nameEn']}){_josa(r['nameKo'])} {where}{copula(cat_ko)}. {expl_ko}".strip()
+            cites = [citation_from(first, first["text"], "장소 정보(앱 데이터)")] if first else []
+            if src is not first and src:
+                cites.append(citation_from(src, src["text"], "장소 설명(앱 데이터)"))
+        else:
+            gu_en = f" in {SEOUL_GU[gu]}-gu, Seoul" if gu in SEOUL_GU else ""
+            article = "an" if cat_en[:1].lower() in "aeiou" else "a"
+            txt = f"{r['nameEn']} ({r['nameKo']}) is {article} {cat_en.lower() or 'heritage site'}{gu_en}. {expl_en}".strip()
+            cites = [c for c in (en, first) if c]
+            cites = [citation_from(c, c["text"], "장소 정보(앱 데이터)") for c in cites]
+        return PartResult("answered", claims=[Claim(txt, cites)], debug={"place_id": pid})
+
+    def _course_intro(self, part: Part, store, lang: str) -> PartResult | None:
+        cid = part.params["course_id"]
+        c = self._courses.get(cid)
+        chunks = self._chunks_of(store, "courses", f"course:{cid}")
+        if not c or not chunks:
+            return None
+        order = chunks.get("문단 2")
+        if lang == "ko":
+            intro = chunks.get("문단 1")
+            names = " → ".join(p["name"]["ko"] for p in c["places"])
+            txt = f"{c['title']['ko']}{_josa(c['title']['ko'])} {c['aiSummary']['ko']} 순서는 {copula(names)}."
+            cites = [citation_from(x, x["text"], "코스 정보(앱 데이터)") for x in (intro, order) if x]
+        else:
+            en = next((x for x in chunks.values() if x["text"].startswith("English (app data)")), None)
+            names = " → ".join(f"{p['name']['en']} ({p['name']['ko']})" for p in c["places"])
+            txt = f"{c['title']['en']}: {c['aiSummary'].get('en', '')} Stops: {names}."
+            cites = [citation_from(x, x["text"], "코스 정보(앱 데이터)") for x in (en, order) if x]
+        return PartResult("answered", claims=[Claim(txt, cites)], debug={"course_id": cid})
 
     def _names(self):
         for r in self._places.values():
@@ -254,7 +343,11 @@ class MaruAdapter(Adapter):
                                             source_type=c.source_type, note="코스 순서(데이터)")]))
         return out
 
-    def run_structured(self, part: Part, store, now: datetime, lang: str) -> PartResult:
+    def run_structured(self, part: Part, store, now: datetime, lang: str) -> PartResult | None:
+        if part.intent == "place_intro":
+            return self._place_intro(part, store, lang)
+        if part.intent == "course_intro":
+            return self._course_intro(part, store, lang)
         if part.intent != "ranking":
             raise NotImplementedError(part.intent)
         ids = part.params.get("ids") or []
@@ -273,6 +366,22 @@ class MaruAdapter(Adapter):
 
 
 COURSE_TERMS = ["코스", "루트", "동선", "course", "route", "tour"]
+# 장소·코스 '소개' 질문(속성을 묻지 않는 질문)
+INTRO_RE = re.compile(r"(어떤\s*곳|뭐하는\s*곳|무슨\s*곳|어떤\s*코스|무슨\s*코스|소개해|소개\s*해)|"
+                      r"\b(what is|what's|tell me about|describe|introduce)\b", re.I)
+PLACE_REF_RE = re.compile(r"(^|\s)(여기|이곳|거기|그곳|이 장소)")
+
+
+def _josa(word: str) -> str:
+    last = (word or "")[-1:]
+    return ("은" if (ord(last) - 0xAC00) % 28 else "는") if "가" <= last <= "힣" else "은(는)"
+
+
+def copula(word: str) -> str:
+    last = (word or "").rstrip()[-1:]
+    if "가" <= last <= "힣":
+        return f"{word}{'이에요' if (ord(last) - 0xAC00) % 28 else '예요'}"
+    return f"{word}이에요"
 
 
 def _d(v):

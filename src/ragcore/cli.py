@@ -4,6 +4,7 @@
     python -m ragcore.cli ask --project lolypoly "오늘 점심 뭐야?" [--as-of 2026-11-10T12:00] [--language en] [--context '{...}']
     python -m ragcore.cli eval [--modes keyword,vector,hybrid] [--generate] [--out reports/eval-....json]
     python -m ragcore.cli stats
+    python -m ragcore.cli warm [--project maru|lolypoly|all] [--refresh]   # 자주 묻는 질문 답을 미리 만들어 저장(v0.5.0)
 """
 
 from __future__ import annotations
@@ -43,6 +44,9 @@ def main(argv=None) -> int:
     p.add_argument("--generate", action="store_true", help="hybrid 모드로 전체 응답(생성 포함)까지 실행")
     p.add_argument("--out")
     sub.add_parser("stats")
+    p = sub.add_parser("warm", help="data/<project>/warm_questions.json 의 질문 답을 시간 상한 없이 만들어 저장")
+    p.add_argument("--project", default="all")
+    p.add_argument("--refresh", action="store_true", help="저장된 답을 지우고 다시 만듦")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO if a.verbose else logging.WARNING, format="%(message)s")
 
@@ -67,6 +71,31 @@ def main(argv=None) -> int:
 
         out = run(engine, a.questions, a.modes.split(","), a.generate, a.out)
         print(out)
+    elif a.cmd == "warm":
+        from .registry import ROOT
+
+        engine.settings.gen_budget_s = 0      # 미리 만드는 답은 시간 상한 없이(밤 작업)
+        if engine.settings.generator == "ollama" and engine.settings.warm_model:
+            from .generation import build_generator
+
+            engine.settings.ollama_model = engine.settings.warm_model    # 더 큰 모델로 미리 만든다
+            engine.generator = build_generator(engine.settings)
+        projects = list(engine.adapters) if a.project == "all" else [a.project]
+        for pr in projects:
+            f = ROOT / "data" / pr / "warm_questions.json"
+            if not f.exists():
+                continue
+            if a.refresh:
+                engine.store.cache_clear(pr)
+            items = json.loads(f.read_text(encoding="utf-8"))["items"]
+            done = {"stored": 0, "already": 0, "not_cacheable": 0}
+            for it in items:
+                res = engine.chat(pr, it["question"], it.get("language"), it.get("context") or {}, ask_as=it.get("ask_as"),
+                                  cache_source="warm")
+                kind = "already" if res.debug.get("cache_hit") else (
+                    "stored" if res.status in ("answered", "partial") and res.debug.get("model_calls") else "not_cacheable")
+                done[kind] += 1
+            print(json.dumps({"project": pr, "items": len(items)} | done, ensure_ascii=False))
     elif a.cmd == "stats":
         print(json.dumps(engine.store.counts(), ensure_ascii=False))
     return 0
