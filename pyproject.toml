@@ -1,6 +1,6 @@
 [project]
 name = "ragcore"
-version = "0.3.0"
+version = "0.5.0"
 description = "한국어 대학 생활정보·서울 전통문화 안내 공통 RAG 엔진 (PostgreSQL+pgvector, FastAPI)"
 requires-python = ">=3.12"
 dependencies = [

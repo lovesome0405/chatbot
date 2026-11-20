@@ -6,7 +6,7 @@
 
 프로젝트별 명칭·조회 규칙은 어댑터에 두고, 엔진은 프로젝트 이름을 모른다. 세 번째 도메인(도서관, 합성)은 JSON 파일 등록만으로 검색된다.
 
-> 상태(2026-11-17): 로컬 구현·테스트·평가·시연까지 실행했다. 운영 배포, 원격 푸시, 원본 앱(LOLYPOLY·ari) 수정, 유료 API 호출은 하지 않았다.
+> 상태(2026-11-20, v0.5.0): 두 실제 앱(롤리폴리 식단 화면, MARU 아리 패널)에 연결해 **로컬 실연동**까지 확인했다(브라우저 → 앱 → 엔진 → DB). 앱 PR: chanmini584-ux/LOLYPOLY#3, lovesome0405/ari#2. v0.5.0에서 **63문항 모두 10초 이내**(4코어 CPU, 최대 8.1초), 기본 모델을 상업 이용 제한 없는 `qwen2.5:1.5b`(Apache 2.0)로 바꿨다. 운영 위치는 롤리폴리 학교 PC로 정했고 설치 절차는 [deploy/windows/README.md](deploy/windows/README.md)(Windows 미검증). 스테이징·운영 배포와 유료 API 호출은 하지 않았다. 속도: [reports/v0.5.0/SPEED.md](reports/v0.5.0/SPEED.md), 인계: [reports/v0.4.0/INTEGRATION.md](reports/v0.4.0/INTEGRATION.md).
 
 ## 데이터 유형 (화면·인용에 표시)
 | 데이터 | 유형 | 내용 |
@@ -40,13 +40,15 @@ python -m venv .venv && .venv/bin/pip install -r requirements.lock
 ```
 ```bash
 .venv/bin/python scripts/fetch_e5.py            # e5-small ONNX 470MB, 리비전 고정 + sha256 대조
-docker compose --profile llm up -d ollama && docker compose exec ollama ollama pull qwen2.5:3b   # 약 1.9GB
+docker compose --profile llm up -d ollama && docker compose exec ollama ollama pull qwen2.5:1.5b   # 약 1.0GB, Apache 2.0
+docker compose exec ollama ollama pull qwen3:4b                                                   # 미리 만든 답(warm)용, 약 2.5GB
 ```
 ```bash
 export PYTHONPATH=src:.
 .venv/bin/python -m ragcore.cli ingest                                  # 적재(반복 실행해도 중복 없음)
 .venv/bin/python -m ragcore.cli ask --project lolypoly --as-of 2026-11-10T12:00 "오늘 점심 뭐야?"
 .venv/bin/python -m ragcore.cli eval --generate                         # 검색 비교 + 전체 응답 평가
+.venv/bin/python -m ragcore.cli warm                                    # 자주 묻는 질문 답 미리 만들기(v0.5.0, 밤 작업)
 .venv/bin/python -m pytest -q                                           # fake 모델 + 실제 pgvector
 .venv/bin/uvicorn ragcore.api:app --host 127.0.0.1 --port 8088          # API (로컬 바인딩)
 .venv/bin/python scripts/demo.py                                        # 3분 시연
@@ -55,7 +57,7 @@ export PYTHONPATH=src:.
 
 **Supabase 별도 DB**: `DATABASE_URL`만 Supabase 연결 문자열로 바꾸면 같은 `sql/schema.sql`이 적용된다(pgvector 확장 필요). 트랜잭션 풀러(포트 6543)면 prepared statement를 자동으로 끈다. 이번 세션에서 Supabase에 실제로 연결하지는 않았다.
 
-제약: e5 모델 다운로드 470MB, qwen2.5:3b 1.9GB(실행 중 메모리 약 2.4GB). 4코어 CPU에서 생성 1회는 약 15~70초 걸린다. 정형 조회와 보류 응답은 모델을 부르지 않아 수 ms 안에 끝난다.
+제약: e5 모델 다운로드 470MB, qwen2.5:1.5b 1.0GB. v0.5.0부터 생성은 8초 상한(`RAG_GEN_BUDGET_S`)이 있고 넘으면 근거 원문 발췌로 답한다. 정형 조회·미리 만든 답·보류 응답은 모델을 부르지 않아 수 ms 안에 끝난다. (v0.4.0까지의 qwen2.5:3b는 Qwen Research 비상업 라이선스라 기본값에서 뺐다.)
 
 ## API 계약
 - `POST /v1/chat` — 헤더 `Authorization: Bearer <앱 키>`. 서버가 `RAG_APP_KEYS`로 프로젝트 범위를 정한다. 본문 `{question, language?, context?}`. 범위 필드(`project` 등)를 넣으면 422로 거부한다.
@@ -72,8 +74,8 @@ export PYTHONPATH=src:.
 | `examples/ari_maru/ari-rag-bridge.js` | node에서 Ari `buildAriContext()` 모양의 객체로 호출. `ranking.topRoutes` 순서가 응답 인용 순서에 그대로 유지됨 | ari `app.js`는 수정하지 않았다. 장애 시 `fallbackAriReply`는 "로컬 안내(근거 검색 답변 아님)" 표시를 붙여 쓰도록 안내만 했다 |
 | `examples/maru-static/index.html` | Playwright로 390px 화면에서 실제 호출·렌더링, 가로 넘침 없음 (`reports/maru-static-demo.png`) | 공개 중계 엔드포인트만 쓴다. 공개 배포 시 HTTPS·도메인·남용 방지 정책이 따로 필요하다 |
 
-## 테스트 (2026-11-18 v0.3.0 실행)
-`pytest -q` → **45 passed** (단위 22 + 실제 PostgreSQL/pgvector 통합 23, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트를 돌린다.
+## 테스트 (2026-11-20 v0.5.0 실행)
+`pytest -q` → **67 passed** (v0.5.0: 단위 33 + 실제 PostgreSQL/pgvector 통합 34, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트를 돌린다. 앱 화면 E2E는 `e2e/apps.e2e.cjs`(실제 서버 필요, CI 밖).
 판정 가능한 필수 조건은 모두 자동 테스트로 확인했다:
 
 | 필수 조건 | 테스트 |
@@ -136,7 +138,18 @@ export PYTHONPATH=src:.
 
 v0.3.0에서 3B가 7B와 비슷해졌다. 상태 일치는 3B가 높고, 7B는 의미 오류가 적다(아래 한계). 해요체 비율은 약 17%로 낮다(모델이 지시해도 "~습니다"를 주로 씀). 수치는 전체 실행 결과에 마지막 되풀이 검증 수정을 재생 평가(`scripts/replay_eval.py`, 저장된 모델 출력 재사용, 모델 호출 없음)로 반영한 것이다. 상세: [reports/v0.3.0/COMPARE.md](reports/v0.3.0/COMPARE.md), 변경 내용: [CHANGELOG.md](CHANGELOG.md).
 
-## 3분 시연 순서 (`scripts/demo.py`, 기록: `reports/demo-transcript.txt`)
+## v0.4.0 두 앱 3분 시연 (실제 앱 화면)
+| 시간 | 화면 | 질문 → 보여 줄 것 |
+|---|---|---|
+| 0:00 | 구조 한 장 | 엔진 하나(검색·근거 검증·계약) + 앱별 어댑터·진입점(INTEGRATION.md 1절 표) |
+| 0:30 | 롤리폴리 `/meals/` | "오늘 점심 뭐야?" → 자료 없는 날: 마지막 확인 시각 + 공식 식단 링크 / "11월 10일 점심 뭐야?" → 정형 조회, 모델 0회 |
+| 1:00 | 롤리폴리 | "성적우수장학금은 신입생도 1학기에 받을 수 있어?" → "아니요, … 2학기부터" + 장학표 **행 3** 공식 원문. 전에는 모델이 질문을 복사해 보류(QUALITY.md 3-1) |
+| 1:30 | MARU 코스 상세 | 경복궁 카드 → 국립민속박물관 카드로 바꿔 "What is this place?" → B만 전달·앱 데이터 출처. "What is the order of this course?" → 앱 데이터 방문 순서 |
+| 2:10 | MARU(평가 서버, 기준 2026-09-15) | "Can I go up to the Geunjeongjeon terrace now?" → 공식 공지·적용 기간. 일반 서버는 기준 시각 덮어쓰기를 400으로 거부 |
+| 2:35 | 잘못된 답 찾기·고치기 | M14 "Jungmu-gu"·N02 경복궁 되풀이를 단계표(검색→근거→주장→판정)로 보여 주고, 서버 검증으로 막힌 결과와 남은 회귀 N07 |
+| 2:55 | 끄기 | 롤리폴리 환경변수 비우기, 아리 `rag-config.json` off → 기존 흐름 |
+
+## 3분 시연 순서(v0.3.0, CLI) (`scripts/demo.py`, 기록: `reports/demo-transcript.txt`)
 1. **오늘 점심** (롤리폴리 키, 기준 2026-11-10): 정형 조회로 중식 레코드를 그대로 반환. 모델 호출 0회. 출처 유형 "저장소 데이터"
 2. **장학표 한 행 인용**: "학과수석 입학자는 장학금 얼마나 받아?" → `장학제도 표 > 행 2` 인용, 1년간 교육비 전액면제. 출처 유형 "실제 공개 원문"
 3. **같은 서버로 영어 문화 질문** (MARU 키): "Tell me about Jongmyo Shrine" → 한국어 원문 근거와 출처 링크. v0.3.0 평가에서는 영어 질문 9/9가 영어로 답했지만, 3B가 이 질문에 "Jungmu-gu"(실제 종로구)라는 틀린 위치를 붙인 적이 있다(아래 한계)

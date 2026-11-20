@@ -123,7 +123,7 @@ def test_meal_present_empty_missing_are_distinct(engine):
     missing = engine.chat("lolypoly", "오늘 점심 뭐야?", "ko", {}, ref("2026-11-17T12:00"))
     assert ok.status == "answered" and "상하이파스타" in ok.answer and ok.debug["model_calls"] == 0
     assert empty.status == "answered" and "비어" in empty.answer
-    assert missing.status == "insufficient_evidence" and "레코드가 없어" in missing.answer
+    assert missing.status == "insufficient_evidence" and "레코드가 없어" in missing.answer and "마지막 확인" in missing.answer
     assert "meal:" not in " ".join(sources(missing))  # 다른 날짜 근사 결과 없음
 
 
@@ -161,19 +161,25 @@ def test_time_sensitive_without_dated_source(engine):
     assert res.status == "insufficient_evidence"
 
 
-def test_generation_failure_is_unavailable_not_answer(engine):
+def test_generation_failure_falls_back_to_verified_quote(engine):
+    """v0.5.0: 생성이 실패·시간 초과면 근거 원문 발췌로 답하고(검증 통과분만), 발췌할 문장이 없을 때만 unavailable."""
     engine.generator = FakeGenerator(fail=True)
-    res = engine.chat("lolypoly", "학과수석 입학자 장학금 혜택", "ko", {}, ref("2026-11-17T12:00"))
-    assert res.status == "unavailable" and "생성된 답변 아님" in res.answer
-    assert all(c.note == "검색 결과(생성 실패)" for c in res.citations)
+    res = engine.chat("maru", "인사동에서 전통공예를 볼 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    assert res.status == "answered" and "자료에는 “" in res.answer and "공예" in res.answer
+    assert all(c.note.startswith("원문 발췌") for c in res.citations)
+    none = engine.chat("lolypoly", "zzqx 알려줘", "ko", {}, ref("2026-11-17T12:00"))
+    assert none.status in ("unavailable", "insufficient_evidence") and "자료에는" not in none.answer
 
 
 def test_bad_citation_ids_never_returned(engine):
     engine.generator = FakeGenerator(bad_citation=True)
-    res = engine.chat("lolypoly", "학과수석 입학자 장학금 혜택", "ko", {}, ref("2026-11-17T12:00"))
-    assert res.status == "insufficient_evidence"
-    assert res.debug["parts"][0]["unknown_ids"] >= 1
-    valid = {d["source_id"] for d in engine.store.documents("lolypoly")}
+    res = engine.chat("maru", "인사동에서 전통공예를 볼 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    part = res.debug["parts"][0]
+    assert part["unknown_ids"] >= 1                                   # 모델의 없는 ID는 모두 버림
+    # v0.5.0: 모델 주장이 전부 버려지면 근거 원문 발췌로 대체(같은 검증 통과분만) — 모델 주장 자체는 하나도 나가지 않는다
+    assert part.get("fallback") == "extractive_after_drop"
+    assert all(c.note and c.note.startswith("원문 발췌") for c in res.citations)
+    valid = {d["source_id"] for d in engine.store.documents("maru")}
     assert set(sources(res)) <= valid
 
 
@@ -187,7 +193,7 @@ def test_unexpected_error_is_unavailable(engine, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("db down")
     monkeypatch.setattr(engine.store, "keyword_search", boom)
-    res = engine.chat("maru", "경복궁은 어떤 곳이야?", "ko", {}, ref("2026-11-17T12:00"))
+    res = engine.chat("maru", "인사동에서 전통공예를 볼 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
     assert res.status == "unavailable" and res.citations == []
 
 
@@ -238,7 +244,190 @@ def test_access_restriction_status_decided_by_code(engine):
 
 def test_explicit_place_scope_skips_relevance_gate(engine):
     """장소를 명시적으로 고른 뒤의 막연한 후속 질문도 그 장소 근거를 모델에 전달한다."""
-    res = engine.chat("maru", "여기는 어떤 곳이야?", "ko", {"place_id": "jongmyo-shrine"}, ref("2026-11-17T12:00"))
+    res = engine.chat("maru", "여기는 걷기 힘든 곳이야?", "ko", {"place_id": "jongmyo-shrine"}, ref("2026-11-17T12:00"))
     part = res.debug["parts"][0]
     assert part["kind"] == "document" and part["chunk_ids"]                      # 근거가 관문에서 다 버려지지 않음
     assert {s for s, _, _ in part["ranks"]} == {"place:jongmyo-shrine"}           # 선택한 장소 근거만
+
+
+# ── v0.4.0 ───────────────────────────────
+def test_scholarship_row_rule_keeps_target_term_amount_together(engine):
+    """L09 회귀: 대상(신입생)·학기·금액을 같은 표 행에서 읽는다. 학기를 바꾸면 결론이 바뀐다. 모델 호출 0회."""
+    no = engine.chat("lolypoly", "성적우수장학금은 신입생도 1학기에 받을 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    yes = engine.chat("lolypoly", "신입생은 2학기에 성적장학금 받을 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    en = engine.chat("lolypoly", "Can a freshman get the academic excellence scholarship in the first semester?", "en", {},
+                     ref("2026-11-17T12:00"))
+    assert no.answer.startswith("아니요") and "2학기부터" in no.answer and "1개학기 교육비 전액면제" in no.answer
+    assert yes.answer.startswith("네") and no.debug["model_calls"] == 0
+    assert en.answer.startswith("No") and en.status == "answered"
+    assert no.citations[0].locator.startswith("장학제도 표 > 행 3")
+    # 같은 행이 아닌 금액(행 2의 '1년간')을 행 3 문장에 섞지 않는다
+    first_line = no.answer.splitlines()[0]
+    assert "1년간" not in first_line
+
+
+def test_scholarship_rule_absent_falls_back_to_document(engine):
+    res = engine.chat("lolypoly", "근로 장학금은 신입생도 1학기에 받을 수 있어?", "ko", {}, ref("2026-11-17T12:00"))
+    assert res.route == "document"        # 규칙 행이 없으면 정형 판정을 만들지 않고 문서 검색으로 넘긴다
+
+
+def _export_with(tmp_path, base_path, mutate):
+    import json
+
+    data = json.loads(base_path.read_text(encoding="utf-8"))
+    mutate(data)
+    out = tmp_path / "export.json"
+    out.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return out
+
+
+def test_meal_explicit_none_differs_from_missing_day(engine, tmp_path):
+    from adapters.lolypoly.adapter import LolypolyAdapter
+
+    ad = engine.adapters["lolypoly"]
+
+    def put_none(d):
+        for m in d["meals"]:
+            if m["date"] == "2026-11-11" and m["meal_type"] == "lunch":
+                m["items"] = ["금일 중식 없음"]
+
+    new = LolypolyAdapter(ad.dir, export_path=_export_with(tmp_path, ad.export_path, put_none))
+    sync(new, engine.store, engine.embedder)
+    engine.adapters["lolypoly"] = new
+    none = engine.chat("lolypoly", "오늘 점심 뭐야?", "ko", {}, ref("2026-11-11T12:00"))
+    missing = engine.chat("lolypoly", "오늘 점심 뭐야?", "ko", {}, ref("2026-11-20T12:00"))
+    assert none.status == "answered" and "금일 중식 없음" in none.answer and "중식이 없어요" in none.answer
+    assert missing.status == "insufficient_evidence" and "마지막 확인" in missing.answer
+    assert missing.citations[0].url and "menu=4819" in missing.citations[0].url   # 공식 식단 경로
+
+
+def test_failed_source_keeps_last_success_and_original_date(engine, tmp_path):
+    """공지 수집이 실패한 export(공지 0건, 상태 failed)를 적재해도 마지막 성공 공지와 원래 수집일이 남는다."""
+    from adapters.lolypoly.adapter import LolypolyAdapter
+
+    ad = engine.adapters["lolypoly"]
+    before = {d["source_id"]: d["checked_at"] for d in engine.store.documents("lolypoly", "notices")}
+
+    def fail_notices(d):
+        d["notices"] = []
+        d["provenance"]["collections"] = {"meals": {"last_run_status": "success"}, "events": {"last_run_status": "success"},
+                                          "notices": {"last_run_status": "failed"}}
+
+    new = LolypolyAdapter(ad.dir, export_path=_export_with(tmp_path, ad.export_path, fail_notices))
+    st = sync(new, engine.store, engine.embedder)
+    after = {d["source_id"]: d["checked_at"] for d in engine.store.documents("lolypoly", "notices")}
+    assert st["deleted"] == 0 and before and after == before
+
+
+def test_public_rate_limit_and_reference_time(engine, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from ragcore import api
+
+    engine.settings.allow_reference_time = False
+    engine.settings.public_rate_per_min = 2
+    engine.settings.trust_proxy_hops = 0
+    api._hits.clear()
+    monkeypatch.setattr(api, "engine", lambda: engine)
+    c = TestClient(api.app)
+    # 일반 요청의 기준 시각 덮어쓰기는 거부
+    assert c.post("/v1/public/chat", json={"question": "경복궁", "reference_time": "2026-09-15T12:00:00"}).status_code == 400
+    r = c.post("/v1/public/chat", json={"question": "경복궁은 어떤 곳이야?"})
+    assert r.status_code == 200 and "total;dur=" in r.headers["server-timing"]
+    # X-Forwarded-For 를 바꿔도(프록시 미신뢰) 같은 클라이언트로 센다
+    r = c.post("/v1/public/chat", json={"question": "경복궁"}, headers={"X-Forwarded-For": "5.6.7.8"})
+    assert r.status_code == 429 and r.headers.get("retry-after") == "60"
+    api._hits.clear()
+
+
+# ── v0.5.0: 정형 답 확대·미리 만든 답 ───────
+def test_structured_rows_events_hours_without_model(engine):
+    r = engine.chat("lolypoly", "학과수석 입학자는 장학금 얼마나 받아?", "ko", {}, ref("2026-11-17T12:00"))
+    assert r.route == "structured" and "1년간 교육비 전액면제" in r.answer and r.debug["model_calls"] == 0
+    assert r.citations[0].locator.startswith("장학제도 표 > 행 2")
+    w = engine.chat("lolypoly", "Is there a scholarship for students who work for the college?", "en", {}, ref("2026-11-17T12:00"))
+    assert w.answer.startswith("Yes.") and "반액" in w.answer
+    vague = engine.chat("lolypoly", "장학금 신청 방법 알려줘", "ko", {}, ref("2026-11-17T12:00"))
+    assert vague.route == "document"            # 행을 고를 수 없으면 정형 답을 만들지 않음
+    ev = engine.chat("lolypoly", "학위수여식 언제야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert ev.route == "structured" and ev.answer.startswith("- 학위수여식") and "2027-02-03" in ev.answer.splitlines()[0]
+    hours = engine.chat("lolypoly", "학생식당 식사시간 알려줘", "ko", {}, ref("2026-11-10T12:00"))
+    assert hours.route == "structured" and "점심 11:50 - 13:20" in hours.answer
+    stale = engine.chat("lolypoly", "학생식당 식사시간 알려줘", "ko", {}, ref("2027-03-10T12:00"))
+    assert stale.status == "insufficient_evidence"   # 오래된 시간표는 정형 답 대신 시점 보류
+
+
+def test_place_and_course_intro_from_app_data(engine):
+    ko = engine.chat("maru", "경복궁은 어떤 곳이야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert ko.route == "structured" and ko.answer.startswith("경복궁(Gyeongbokgung Palace)은 종로구에 있는 궁궐이에요.")
+    en = engine.chat("maru", "What is this place?", "en", {"place_id": "jongmyo-shrine"}, ref("2026-11-17T12:00"))
+    assert "Jongmyo Shrine (종묘)" in en.answer and "Jongno-gu" in en.answer and en.debug["model_calls"] == 0
+    assert all(c.source_id == "place:jongmyo-shrine" for c in en.citations)
+    attr = engine.chat("maru", "What is the entrance fee here?", "en", {"place_id": "jongmyo-shrine"}, ref("2026-11-17T12:00"))
+    assert attr.route != "structured"           # 속성(요금) 질문은 소개 템플릿으로 답하지 않음
+    course = engine.chat("maru", "Night Traditional Culture Course 어떤 코스야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert course.route == "structured" and "→" in course.answer
+
+
+def test_answer_cache_hit_invalidation_and_exclusions(engine):
+    engine.settings.answer_cache = True
+    q = "인사동에서 전통공예를 볼 수 있어?"
+    first = engine.chat("maru", q, "ko", {})
+    assert first.status == "answered" and not first.debug.get("cache_hit")
+    second = engine.chat("maru", q + "  ", "ko", {})
+    assert second.debug.get("cache_hit") and second.answer == first.answer and second.request_id != first.request_id
+    assert not engine.chat("maru", q, "ko", {}, ref("2026-11-17T12:00")).debug.get("cache_hit")   # 고정 시각 요청은 늘 새로
+    # 자료가 바뀌면(문서 버전) 저장된 답을 쓰지 않는다
+    engine.store.conn.execute("update rag_document set version = version || 'x' where project='maru' and source_id='place:insadong'")
+    assert not engine.chat("maru", q, "ko", {}).debug.get("cache_hit")
+    # 시점 질문은 저장하지 않는다
+    engine.chat("maru", "경복궁 근정전 월대 지금 올라갈 수 있어?", "ko", {})
+    assert not engine.chat("maru", "경복궁 근정전 월대 지금 올라갈 수 있어?", "ko", {}).debug.get("cache_hit")
+    engine.store.cache_clear()
+
+
+def test_generation_budget_is_split_across_parts(engine):
+    seen = []
+
+    class Spy(FakeGenerator):
+        def generate(self, *a, budget_s=None, **k):
+            seen.append(budget_s)
+            return super().generate(*a, **k)
+
+    engine.generator = Spy()
+    engine.settings.gen_budget_s = 8
+    res = engine.chat("maru", "이 코스 장소 순서 알려주고 그리고 입장료는 얼마야?", "ko", {"course_id": "palace-history-course"},
+                      ref("2026-11-17T12:00"))
+    assert res.route == "composite" and seen and all(b == 4 for b in seen)   # 문서 부분 2개 → 8초를 반씩
+
+
+def test_warm_answers_need_human_approval(engine):
+    """밤 작업으로 만든 답은 사람이 '맞음'으로 판정해야 내보낸다. '틀림'은 내보내지도, 실시간 답으로 덮어쓰지도 않는다."""
+    from ragcore.engine import cache_key
+
+    st = engine.store
+    st.cache_clear(keep_judged=False)
+    engine.settings.answer_cache = True
+    q, ctx = "인사동에서 전통공예를 볼 수 있어?", {}
+    key = cache_key("maru", q, "ko", engine.adapters["maru"].validate_context(ctx))
+    ver = st.data_version("maru")
+    engine.chat("maru", q, "ko", ctx, cache_source="warm")
+    assert st.cache_exists("maru", key, ver) == "warm"
+    assert not engine.chat("maru", q, "ko", ctx).debug.get("cache_hit")            # 검토 전: 내보내지 않음
+    assert st.cache_exists("maru", key, ver) == "warm"                             # 실시간 답이 검토 대기 답을 덮지 않음
+    st.cache_judge("maru", key, "approved")
+    hit = engine.chat("maru", q, "ko", ctx)
+    assert hit.debug.get("cache_hit") and hit.debug["latency_ms"] < 200             # 승인 후: DB 조회만
+    st.cache_judge("maru", key, "rejected")
+    assert not engine.chat("maru", q, "ko", ctx).debug.get("cache_hit")
+    assert st.cache_exists("maru", key, ver) == "rejected"
+    assert st.cache_clear() == 0 and st.cache_exists("maru", key, ver) == "rejected"   # 판정은 --refresh 로도 안 지움
+    st.cache_clear(keep_judged=False)
+
+
+def test_scholarship_row_respects_numeric_condition(engine):
+    """E2E에서 발견: '2.5 이상'처럼 질문의 숫자 조건이 든 행(비고 열 포함)만 고른다. 없으면 정형 답을 만들지 않는다."""
+    r = engine.chat("lolypoly", "직전학기 성적 기준이 2.5 이상인 장학금은 뭐야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert r.route == "structured" and r.answer.startswith("복지 장학금")
+    none = engine.chat("lolypoly", "직전학기 성적 기준이 4.0 이상인 장학금은 뭐야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert none.route == "document"

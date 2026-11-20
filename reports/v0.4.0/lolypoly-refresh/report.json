@@ -1,0 +1,123 @@
+{
+ "run_at": "2026-11-19T23:18:32+09:00",
+ "lolypoly_commit": "ccc0237323f84f187bafb60dadfeea1a335744df",
+ "steps": [
+  {
+   "step": "1",
+   "lolypoly_runs": {
+    "meals": [
+     "success",
+     42
+    ],
+    "events": [
+     "success",
+     94
+    ],
+    "notices": [
+     "success",
+     40
+    ]
+   },
+   "export": "reports/v0.4.0/lolypoly-refresh/export-step1.json",
+   "export_collections": {
+    "meals": {
+     "last_run_status": "success",
+     "last_run_at": "2026-11-19T14:18:33.393155+00:00",
+     "last_success_at": "2026-11-19T14:18:33.393155+00:00"
+    },
+    "events": {
+     "last_run_status": "success",
+     "last_run_at": "2026-11-19T14:18:33.472832+00:00",
+     "last_success_at": "2026-11-19T14:18:33.472832+00:00"
+    },
+    "notices": {
+     "last_run_status": "success",
+     "last_run_at": "2026-11-19T14:18:33.503824+00:00",
+     "last_success_at": "2026-11-19T14:18:33.503824+00:00"
+    }
+   },
+   "ingest": {
+    "inserted": 0,
+    "replaced": 0,
+    "meta_updated": 176,
+    "unchanged": 1,
+    "rejected": 0,
+    "private_removed": 0,
+    "deleted": 0,
+    "chunks_embedded": 0,
+    "status": "success",
+    "seconds": 0.14
+   },
+   "lunch": {
+    "status": "answered",
+    "answer": "2026-11-10(화) 중식 메뉴는 이렇게 나와요: 상하이파스타, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자 [1]",
+    "as_of": [
+     "LOLYPOLY 저장소 fixture 재현 · 공식 홈페이지 2026-11-02 저장본 · lolypoly@ccc0237"
+    ]
+   },
+   "notices_first": {
+    "answer": "- [입시] [전문기술/하이테크] 2027학년도 춘천캠퍼스 직업교육과정 모집 안내 (2026-10-28) [1]",
+    "as_of": "게시일 2026-10-28"
+   }
+  },
+  {
+   "step": "2",
+   "lolypoly_runs": {
+    "meals": [
+     "success",
+     21
+    ],
+    "notices": [
+     "failed",
+     0
+    ]
+   },
+   "export": "reports/v0.4.0/lolypoly-refresh/export-step2.json",
+   "export_collections": {
+    "meals": {
+     "last_run_status": "success",
+     "last_run_at": "2026-11-19T14:18:34.131830+00:00",
+     "last_success_at": "2026-11-19T14:18:34.131830+00:00"
+    },
+    "events": {
+     "last_run_status": "success",
+     "last_run_at": "2026-11-19T14:18:33.472832+00:00",
+     "last_success_at": "2026-11-19T14:18:33.472832+00:00"
+    },
+    "notices": {
+     "last_run_status": "failed",
+     "last_run_at": "2026-11-19T14:18:34.134980+00:00",
+     "last_success_at": "2026-11-19T14:18:33.503824+00:00"
+    }
+   },
+   "ingest": {
+    "inserted": 0,
+    "replaced": 1,
+    "meta_updated": 175,
+    "unchanged": 1,
+    "rejected": 0,
+    "private_removed": 0,
+    "deleted": 0,
+    "chunks_embedded": 1,
+    "status": "partial",
+    "seconds": 0.2
+   },
+   "lunch": {
+    "status": "answered",
+    "answer": "2026-11-10(화) 중식 메뉴는 이렇게 나와요: [재현용 변경] 김치볶음밥, 미니후리카게밥, 단호박스프, 바삭에그카츠/타르타르소스, 사과무생채, 김치/보리과자 [1]",
+    "as_of": [
+     "재현용 변경 데이터(실제 아님) · 수집 2026-11-19 23:18 KST · lolypoly@ccc0237"
+    ]
+   },
+   "notices_first": {
+    "answer": "- [입시] [전문기술/하이테크] 2027학년도 춘천캠퍼스 직업교육과정 모집 안내 (2026-10-28) [1]",
+    "as_of": "게시일 2026-10-28"
+   }
+  }
+ ],
+ "checks": {
+  "answer_changed": true,
+  "failed_notices_kept": true,
+  "notices_failed_status": true
+ }
+}

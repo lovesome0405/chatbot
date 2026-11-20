@@ -1,0 +1,907 @@
+From dcefe6702cdbdd81ced08d4272a5aaa4b7872692 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 19 Nov 2026 14:44:20 +0000
+Subject: [PATCH] =?UTF-8?q?=EB=A1=A4=EB=A6=AC=ED=8F=B4=EB=A6=AC=20?=
+ =?UTF-8?q?=EC=95=88=EB=82=B4:=20=EC=8B=9D=EB=8B=A8=20=ED=99=94=EB=A9=B4?=
+ =?UTF-8?q?=EC=97=90=EC=84=9C=20=EA=B3=B5=ED=86=B5=20RAG=20=EC=97=94?=
+ =?UTF-8?q?=EC=A7=84=EC=97=90=20=EC=A7=88=EB=AC=B8=20(D-073)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 같은 출처 POST /assistant/ask/ (CSRF, 서버 측 Bearer 키, 10분 20회 제한), 기본 꺼짐
+- 다섯 상태·출처 표시, 장애는 상태 줄·입력 복구·다시 시도, 중복 전송 방지, 기록 저장 안 함
+- export_rag / collect_all --rag-export: 허용 필드 + 종류별 마지막 수집 결과를 엔진 적재용 JSON 으로
+- 테스트 8개 추가(전체 293 통과), 마이그레이션 없음
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KsiarExPvzNVxFZ8EZkA2d
+---
+ .env.example                              |   5 +
+ README.md                                 |   9 +-
+ campus/management/commands/collect_all.py |   8 +-
+ campus/management/commands/export_rag.py  |  98 +++++++++++
+ campus/rag.py                             |  88 ++++++++++
+ campus/tests/test_rag.py                  | 154 ++++++++++++++++
+ campus/urls.py                            |   1 +
+ campus/views.py                           |  64 ++++++-
+ config/settings.py                        |  11 ++
+ docs/DECISIONS.md                         |   1 +
+ docs/PROGRESS.md                          |   6 +
+ static/css/app.css                        |  29 ++++
+ static/js/assistant.js                    | 203 ++++++++++++++++++++++
+ templates/campus/_assistant.html          |  24 +++
+ templates/campus/meals.html               |   1 +
+ 15 files changed, 696 insertions(+), 6 deletions(-)
+ create mode 100644 campus/management/commands/export_rag.py
+ create mode 100644 campus/rag.py
+ create mode 100644 campus/tests/test_rag.py
+ create mode 100644 static/js/assistant.js
+ create mode 100644 templates/campus/_assistant.html
+
+diff --git a/.env.example b/.env.example
+index 1bd550f..d26559e 100644
+--- a/.env.example
++++ b/.env.example
+@@ -72,3 +72,8 @@ TAGO_SERVICE_KEY=
+ # LOLYPOLY_FEEDBACK_IP_HOURLY_LIMIT=120   # 의견 폼: 같은 접속 주소 전체의 보조 한도 (브라우저별 한도는 LOLYPOLY_FEEDBACK_HOURLY_LIMIT)
+ # 로그인을 쓰는 운영 서버는 반드시 DJANGO_HTTPS=True (로그인 쿠키를 HTTPS 에서만 보냄)
+ 
++# 롤리폴리 안내(D-073, 공통 RAG 엔진). 둘 다 있어야 켜진다. 키는 서버에서만 쓰고 화면에 보내지 않는다.
++# LOLYPOLY_RAG_API_URL=https://<엔진 주소>        # 개발: http://127.0.0.1:8088
++# LOLYPOLY_RAG_APP_KEY=                           # 엔진 RAG_APP_KEYS 의 lolypoly 키(예시에 실제 값 쓰지 않기)
++# LOLYPOLY_RAG_TIMEOUT_SEC=60
++# LOLYPOLY_RAG_LIMIT_PER_10MIN=20
+diff --git a/README.md b/README.md
+index a064fde..d3838f7 100644
+--- a/README.md
++++ b/README.md
+@@ -34,10 +34,11 @@
+ 
+ ### Unreleased — 다음 릴리스에 포함할 변경
+ 
+-- 추가: 없음. 이후 작업부터 변경한 기능·경로·구현 상태를 여기에 기록합니다.
+-- 변경: 없음.
+-- 수정: 없음. 수정 시 `ERR-번호`와 상세 기록 링크를 연결합니다.
+-- 검증·운영 영향: 변경 작업마다 명령·결과·환경변수/마이그레이션·배포 상태를 추가합니다.
++- 추가(D-073, 브랜치 `claude/rag-assistant`): **롤리폴리 안내** — 식단 화면(`/meals/`) 아래 질문 칸. 공통 RAG 엔진(lovesome0405/chatbot v0.4.0)이 식단·학사일정·장학 공개 자료로 답하고 출처(공식 원문/앱 수집 자료)를 함께 보여 줌. 서버 중계 `POST /assistant/ask/`(`campus/rag.py`, `campus/views.py`), 화면 `templates/campus/_assistant.html`·`static/js/assistant.js`. 실제 구현. **환경변수 두 개가 없으면 꺼짐(기본 꺼짐)**.
++- 추가: `python manage.py export_rag --out <파일>` — 식단·학사일정·공지 허용 필드 + 종류별 마지막 수집 결과를 엔진 적재용 JSON 으로. `collect_all --rag-export <파일>` 로 수집 직후 함께 실행.
++- 변경: 없음. 수정: 없음.
++- 검증(2026-11-19, 클라우드 Linux): `manage.py test` 293개 통과(새 8개), `check` 0, `makemigrations --check` 변경 없음. 브라우저 E2E(실제 엔진·DB·qwen2.5:3b, iPhone 13 화면) 14/14 — 결과는 chatbot 저장소 `reports/v0.4.0/e2e/`. 학교 PC·실기기·Render 미확인.
++- 운영 영향: **마이그레이션 없음.** 새 환경변수 `LOLYPOLY_RAG_API_URL`(https, 개발만 http://127.0.0.1), `LOLYPOLY_RAG_APP_KEY`, 선택 `LOLYPOLY_RAG_TIMEOUT_SEC`(60)·`LOLYPOLY_RAG_LIMIT_PER_10MIN`(20). 엔진 HTTPS 주소가 정해지기 전에는 운영에서 켜지 않음. 엔진 생성 답변은 CPU에서 수십 초라 학교 PC waitress `channel_timeout=30`·Cloudflare 100초 제한과의 관계를 chatbot `reports/v0.4.0/TIMEOUTS.md` 에 측정해 둠.
+ 
+ ### v0.4.1-beta — 탈퇴·운영 처리·로그인 제한 오류 수정 (2026-11-17)
+ 
+diff --git a/campus/management/commands/collect_all.py b/campus/management/commands/collect_all.py
+index d442fbb..613d914 100644
+--- a/campus/management/commands/collect_all.py
++++ b/campus/management/commands/collect_all.py
+@@ -19,8 +19,10 @@ class Command(BaseCommand):
+     def add_arguments(self, parser):
+         parser.add_argument("--only", choices=list(JOBS), action="append",
+                             help="일부만 실행 (여러 번 지정 가능). 예: --only meals --only notices")
++        parser.add_argument("--rag-export", metavar="PATH",
++                            help="수집 뒤 공개 필드를 RAG 엔진 적재용 JSON 으로 내보냄(D-073). 일부가 실패해도 내보낸다")
+ 
+-    def handle(self, *args, only, **options):
++    def handle(self, *args, only, rag_export=None, **options):
+         failed = []
+         for key in only or list(JOBS):
+             label, job = JOBS[key]
+@@ -30,6 +32,10 @@ class Command(BaseCommand):
+             else:
+                 failed.append(label)
+                 self.stderr.write(self.style.ERROR(f"[실패] {label}: {run.message}"))
++        if rag_export:
++            from django.core.management import call_command
++
++            call_command("export_rag", out=rag_export, stdout=self.stdout)
+         if failed:
+             # 0이 아닌 종료 코드 → 스케줄러 로그에서 실패 확인 가능
+             raise CommandError(f"실패한 수집: {', '.join(failed)}")
+diff --git a/campus/management/commands/export_rag.py b/campus/management/commands/export_rag.py
+new file mode 100644
+index 0000000..cb4bad2
+--- /dev/null
++++ b/campus/management/commands/export_rag.py
+@@ -0,0 +1,98 @@
++"""공개 수집 결과(식단·학사일정·공지)를 공통 RAG 엔진 적재용 JSON 으로 내보낸다 (D-073).
++
++    python manage.py export_rag --out /경로/lolypoly-rag-export.json
++
++- 허용 필드만 내보낸다. 계정·커뮤니티·택시방·의견·사진·버스는 내보내지 않는다.
++- 각 행의 collected_at(실제 수집 시각)을 그대로 쓴다. 날짜를 오늘로 바꾸지 않는다.
++- 수집 종류별 마지막 실행 결과(success/failed)와 마지막 성공 시각을 함께 적는다. 엔진은 failed 인 종류의 삭제를 반영하지 않아
++  마지막 성공 데이터가 유지된다(DB 도 실패한 수집으로 기존 행을 바꾸지 않는다).
++- 파일은 임시 파일에 쓴 뒤 바꿔 넣는다(엔진이 반쯤 쓴 파일을 읽지 않게).
++엔진 쪽 적재: RAG_LOLYPOLY_EXPORT=<이 파일> python -m ragcore.cli ingest --project lolypoly
++"""
++
++import json
++import os
++import subprocess
++import tempfile
++from pathlib import Path
++
++from django.conf import settings
++from django.core.management.base import BaseCommand
++from django.utils import timezone
++
++from campus.models import AcademicEvent, CollectionRun, Meal, Notice
++
++PUBLIC_FIELDS = {
++    "meals": ["date", "meal_type", "items", "source_url", "collected_at"],
++    "events": ["title", "course", "start_date", "end_date", "source_year", "source_url", "collected_at"],
++    "notices": ["post_id", "title", "category", "author", "posted_on", "is_pinned", "source_url", "collected_at"],
++}
++MODELS = {"meals": Meal, "events": AcademicEvent, "notices": Notice}
++EXCLUDED = ["accounts", "community", "taxi", "feedback", "bus", "photos"]
++
++
++def _iso(v):
++    return v.isoformat() if hasattr(v, "isoformat") else v
++
++
++def _commit() -> str:
++    try:
++        out = subprocess.run(["git", "-C", str(settings.BASE_DIR), "rev-parse", "HEAD"], capture_output=True, text=True, timeout=5)
++        if out.returncode == 0 and out.stdout.strip():
++            return out.stdout.strip()
++    except (OSError, subprocess.SubprocessError):
++        pass
++    return "VERSION-" + (Path(settings.BASE_DIR) / "VERSION").read_text(encoding="utf-8").strip()
++
++
++def collection_status(source: str) -> dict:
++    runs = CollectionRun.objects.filter(source=source).exclude(status=CollectionRun.Status.RUNNING)
++    last = runs.first()
++    ok = runs.filter(status=CollectionRun.Status.SUCCESS).first()
++    return {
++        "last_run_status": last.status if last else "never",
++        "last_run_at": _iso(last.finished_at) if last else None,
++        "last_success_at": _iso(ok.finished_at) if ok else None,
++    }
++
++
++def build_export(source_label: str = "lolypoly-db") -> dict:
++    out = {
++        "provenance": {
++            "kind": "repository_data",
++            "source": source_label,
++            "format": 2,
++            "description": "LOLYPOLY 수집 DB의 공개 필드(식단·학사일정·공지). 각 행의 collected_at 은 실제 수집 시각",
++            "lolypoly_commit": _commit(),
++            "exported_at": _iso(timezone.now()),
++            "schema": PUBLIC_FIELDS,
++            "excluded": EXCLUDED,
++            "collections": {k: collection_status(k) for k in MODELS},
++        }
++    }
++    for key, model in MODELS.items():
++        out[key] = [{f: _iso(getattr(obj, f)) for f in PUBLIC_FIELDS[key]} for obj in model.objects.all()]
++    return out
++
++
++def write_atomic(path: Path, data: dict):
++    path.parent.mkdir(parents=True, exist_ok=True)
++    fd, tmp = tempfile.mkstemp(prefix=".rag-export-", dir=path.parent)
++    with os.fdopen(fd, "w", encoding="utf-8") as f:
++        json.dump(data, f, ensure_ascii=False, indent=1)
++    os.replace(tmp, path)
++
++
++class Command(BaseCommand):
++    help = "공개 수집 결과(식단·학사일정·공지)를 RAG 엔진 적재용 JSON 으로 내보냅니다."
++
++    def add_arguments(self, parser):
++        parser.add_argument("--out", required=True, help="내보낼 JSON 파일 경로")
++        parser.add_argument("--source-label", default="lolypoly-db", help="provenance.source 값(재현 도구는 fixture)")
++
++    def handle(self, *args, out, source_label, **options):
++        data = build_export(source_label)
++        write_atomic(Path(out), data)
++        counts = {k: len(data[k]) for k in MODELS}
++        status = {k: v["last_run_status"] for k, v in data["provenance"]["collections"].items()}
++        self.stdout.write(self.style.SUCCESS(f"[내보냄] {out} {counts} 수집 상태 {status}"))
+diff --git a/campus/rag.py b/campus/rag.py
+new file mode 100644
+index 0000000..aef3740
+--- /dev/null
++++ b/campus/rag.py
+@@ -0,0 +1,88 @@
++"""롤리폴리 안내(RAG) 연결 — 서버 측에서만 공통 RAG 엔진을 부른다 (D-073).
++
++흐름: 브라우저 → 같은 출처 POST /assistant/ask/ (CSRF 검사) → 여기 ask() → RAG 엔진 POST /v1/chat (Bearer 앱 키)
++- API 주소·앱 키는 서버 환경변수(LOLYPOLY_RAG_API_URL, LOLYPOLY_RAG_APP_KEY)에만 둔다. 화면·브라우저에 보내지 않는다.
++- 둘 중 하나라도 비어 있으면 기능이 꺼진다(화면에 안내 칸을 그리지 않음).
++- 지금 질문 한 개만 보낸다. 대화 기록·로그인 정보·커뮤니티·의견 같은 개인 데이터는 보내지 않는다.
++- 엔진 응답은 공통 계약(status, route, answer, citations, as_of, request_id)을 그대로 쓰되, 링크는 http(s)만 남긴다.
++"""
++
++from __future__ import annotations
++
++import json
++import logging
++import time
++import urllib.error
++import urllib.request
++from dataclasses import dataclass
++
++from django.conf import settings
++
++logger = logging.getLogger("campus.rag")
++
++STATUSES = {"answered", "partial", "insufficient_evidence", "clarification_needed", "unavailable"}
++SOURCE_LABELS = {"public_original": "공식 원문", "repository_data": "앱 수집 자료", "synthetic": "합성 테스트 자료"}
++MAX_QUESTION = 500
++
++
++@dataclass
++class RagError(Exception):
++    """엔진에 닿지 못했거나 엔진이 요청을 거부함. kind: timeout | network | rejected | rate_limited | bad_response"""
++    kind: str
++    http_status: int | None = None
++
++
++def is_enabled() -> bool:
++    return bool(settings.LOLYPOLY_RAG_API_URL and settings.LOLYPOLY_RAG_APP_KEY)
++
++
++def _safe_url(url) -> str | None:
++    return url if isinstance(url, str) and url.startswith(("https://", "http://")) else None
++
++
++def clean_response(data: dict) -> dict:
++    """엔진 응답을 화면용으로 좁힌다. 모르는 상태는 unavailable 로, 링크는 웹 주소만."""
++    status = data.get("status") if data.get("status") in STATUSES else "unavailable"
++    cites = []
++    for c in data.get("citations") or []:
++        if not isinstance(c, dict):
++            continue
++        cites.append({
++            "title": str(c.get("title") or ""),
++            "url": _safe_url(c.get("url")),
++            "quote": str(c.get("quote") or "")[:400],
++            "locator": str(c.get("locator") or ""),
++            "as_of": str(c.get("as_of") or ""),
++            "source_type": str(c.get("source_type") or ""),
++            "source_label": SOURCE_LABELS.get(c.get("source_type"), "자료"),
++            "note": str(c.get("note") or ""),
++        })
++    return {"status": status, "route": str(data.get("route") or ""), "answer": str(data.get("answer") or ""),
++            "citations": cites, "as_of": str(data.get("as_of") or ""), "request_id": str(data.get("request_id") or "")}
++
++
++def ask(question: str, language: str = "ko") -> dict:
++    """질문 하나를 엔진에 보낸다. 실패는 RagError 로 알린다(장애 문구를 답변처럼 만들지 않는다)."""
++    url = settings.LOLYPOLY_RAG_API_URL.rstrip("/") + "/v1/chat"
++    body = json.dumps({"question": question[:MAX_QUESTION], "language": language, "context": {}}).encode()
++    req = urllib.request.Request(url, data=body, method="POST", headers={
++        "Content-Type": "application/json", "Authorization": f"Bearer {settings.LOLYPOLY_RAG_APP_KEY}"})
++    t0 = time.monotonic()
++    try:
++        with urllib.request.urlopen(req, timeout=settings.LOLYPOLY_RAG_TIMEOUT_SEC) as r:
++            data = json.loads(r.read().decode("utf-8"))
++            timing = r.headers.get("Server-Timing", "")
++    except urllib.error.HTTPError as exc:
++        kind = "rate_limited" if exc.code == 429 else "rejected"
++        logger.warning("rag http %s", exc.code)
++        raise RagError(kind, exc.code) from None
++    except TimeoutError:
++        raise RagError("timeout") from None
++    except urllib.error.URLError as exc:
++        raise RagError("timeout" if isinstance(exc.reason, TimeoutError) else "network") from None
++    except (ValueError, UnicodeDecodeError):
++        raise RagError("bad_response") from None
++    # 질문 원문은 남기지 않는다. 구간 지연만(엔진 Server-Timing + 앱→엔진 왕복)
++    logger.info("rag ok request_id=%s status=%s app_ms=%.0f engine=%s", data.get("request_id"), data.get("status"),
++                (time.monotonic() - t0) * 1000, timing)
++    return clean_response(data)
+diff --git a/campus/tests/test_rag.py b/campus/tests/test_rag.py
+new file mode 100644
+index 0000000..e8d6dcd
+--- /dev/null
++++ b/campus/tests/test_rag.py
+@@ -0,0 +1,154 @@
++"""롤리폴리 안내(D-073) 테스트: 서버 측 엔진 호출·CSRF·상태 전달·장애 구분·내보내기. 실제 엔진은 부르지 않는다(가짜 응답)."""
++
++import io
++import json
++import logging
++import urllib.error
++from datetime import date
++from pathlib import Path
++from tempfile import TemporaryDirectory
++from unittest.mock import patch
++
++from django.core.cache import cache
++from django.core.management import call_command
++from django.test import Client, TestCase, override_settings
++from django.urls import reverse
++
++from campus import rag
++from campus.collectors.meals import collect_meals
++from campus.collectors.notices import collect_notices
++from campus.models import CollectionRun, Meal
++
++from .helpers import failing_fetcher, fake_fetcher, fixture
++
++ON = dict(LOLYPOLY_RAG_API_URL="http://127.0.0.1:8088", LOLYPOLY_RAG_APP_KEY="test-only-key", LOLYPOLY_RAG_TIMEOUT_SEC=5,
++          LOLYPOLY_RAG_LIMIT_PER_10MIN=3)
++ANSWER = {"status": "answered", "route": "structured", "answer": "2026-11-10(화) 중식 메뉴는 이렇게 나와요: 상하이파스타",
++          "citations": [{"source_id": "meal:2026-11-10:lunch", "title": "2026-11-10(화) 중식 식단",
++                         "url": "https://www.kopo.ac.kr/chuncheon/content.do?menu=4819", "quote": "상하이파스타",
++                         "locator": "식단 > 2026-11-10(화) 중식", "as_of": "LOLYPOLY 수집 DB · 수집 2026-11-09 06:00 KST",
++                         "source_type": "repository_data", "note": None},
++                        {"source_id": "x", "title": "나쁜 링크", "url": "javascript:alert(1)", "quote": "q", "locator": "",
++                         "as_of": None, "source_type": "public_original", "note": None}],
++          "as_of": "2026-11-10T12:00:00+09:00", "request_id": "abc123"}
++
++
++class FakeResp(io.BytesIO):
++    headers = {"Server-Timing": "retrieval;dur=3, generation;dur=0, total;dur=4"}
++
++    def __enter__(self):
++        return self
++
++    def __exit__(self, *a):
++        return False
++
++
++class AssistantTests(TestCase):
++    def setUp(self):
++        cache.clear()
++        logging.disable(logging.CRITICAL)
++
++    def tearDown(self):
++        logging.disable(logging.NOTSET)
++
++    def csrf_client(self):
++        c = Client(enforce_csrf_checks=True)
++        c.get(reverse("campus:meals"))
++        return c, c.cookies["csrftoken"].value
++
++    def post(self, c, token, question="오늘 점심 뭐야?"):
++        return c.post(reverse("campus:assistant_ask"), data=json.dumps({"question": question}),
++                      content_type="application/json", HTTP_X_CSRFTOKEN=token)
++
++    def test_disabled_by_default_hides_ui_and_endpoint(self):
++        with override_settings(LOLYPOLY_RAG_API_URL="", LOLYPOLY_RAG_APP_KEY=""):
++            page = self.client.get(reverse("campus:meals"))
++            self.assertNotContains(page, "data-assistant")
++            self.assertEqual(self.client.post(reverse("campus:assistant_ask"), {}).status_code, 404)
++
++    @override_settings(**ON)
++    def test_meals_page_shows_assistant_without_key(self):
++        page = self.client.get(reverse("campus:meals"))
++        self.assertContains(page, "data-assistant")
++        self.assertNotContains(page, "test-only-key")
++        self.assertNotContains(page, "127.0.0.1:8088")      # 엔진 주소도 화면에 보내지 않음
++        self.assertIn("csrftoken", page.cookies)
++
++    @override_settings(**ON)
++    def test_csrf_required_and_get_rejected(self):
++        c = Client(enforce_csrf_checks=True)
++        r = c.post(reverse("campus:assistant_ask"), data='{"question":"점심"}', content_type="application/json")
++        self.assertEqual(r.status_code, 403)
++        self.assertEqual(self.client.get(reverse("campus:assistant_ask")).status_code, 405)
++
++    @override_settings(**ON)
++    def test_forwards_only_question_with_server_key(self):
++        c, token = self.csrf_client()
++        with patch("campus.rag.urllib.request.urlopen", return_value=FakeResp(json.dumps(ANSWER).encode())) as op:
++            r = self.post(c, token)
++        self.assertEqual(r.status_code, 200)
++        req = op.call_args.args[0]
++        self.assertEqual(req.full_url, "http://127.0.0.1:8088/v1/chat")
++        self.assertEqual(req.get_header("Authorization"), "Bearer test-only-key")
++        self.assertEqual(json.loads(req.data), {"question": "오늘 점심 뭐야?", "language": "ko", "context": {}})
++        body = r.json()
++        self.assertEqual(body["status"], "answered")
++        self.assertEqual(body["citations"][0]["source_label"], "앱 수집 자료")
++        self.assertIsNone(body["citations"][1]["url"])        # javascript: 링크는 버림
++        self.assertIn("no-cache", r["Cache-Control"])
++
++    @override_settings(**ON)
++    def test_failures_are_distinct_errors_not_answers(self):
++        c, token = self.csrf_client()
++        cases = [(TimeoutError(), 504, "timeout"), (urllib.error.URLError("refused"), 503, "network"),
++                 (urllib.error.HTTPError("u", 429, "x", {}, None), 429, "rate_limited"),
++                 (urllib.error.HTTPError("u", 401, "x", {}, None), 502, "rejected")]
++        for exc, code, kind in cases:
++            cache.clear()
++            with patch("campus.rag.urllib.request.urlopen", side_effect=exc):
++                r = self.post(c, token)
++            self.assertEqual((r.status_code, r.json()["error"]), (code, kind))
++            self.assertNotIn("answer", r.json())
++
++    @override_settings(**ON)
++    def test_unknown_status_becomes_unavailable_and_rate_limit(self):
++        c, token = self.csrf_client()
++        weird = dict(ANSWER, status="hacked")
++        with patch("campus.rag.urllib.request.urlopen", side_effect=lambda *a, **k: FakeResp(json.dumps(weird).encode())):
++            self.assertEqual(self.post(c, token).json()["status"], "unavailable")
++            self.post(c, token)
++            self.post(c, token)
++            self.assertEqual(self.post(c, token).status_code, 429)   # 10분 3회 제한(테스트 설정)
++
++    @override_settings(**ON)
++    def test_bad_question_rejected(self):
++        c, token = self.csrf_client()
++        self.assertEqual(self.post(c, token, "").status_code, 400)
++        self.assertEqual(self.post(c, token, "가" * 501).status_code, 400)
++
++
++class ExportRagTests(TestCase):
++    def setUp(self):
++        logging.disable(logging.CRITICAL)
++
++    def tearDown(self):
++        logging.disable(logging.NOTSET)
++
++    def test_export_has_public_fields_original_dates_and_failed_status(self):
++        collect_meals(weeks=1, fetcher=fake_fetcher(fixture("meals_2026-11-02.html")))
++        collect_notices(pages=1, fetcher=fake_fetcher(fixture("notices_p1.html")))
++        Meal.objects.update(collected_at="2026-11-02T06:00:00+09:00")   # 원래 수집 시각 그대로 내보내는지
++        collect_notices(pages=1, fetcher=failing_fetcher())               # 두 번째 공지 수집 실패 → 기존 공지 유지
++        with TemporaryDirectory() as d:
++            out = Path(d) / "export.json"
++            call_command("export_rag", out=str(out), stdout=io.StringIO())
++            data = json.loads(out.read_text(encoding="utf-8"))
++        prov = data["provenance"]
++        self.assertEqual(prov["collections"]["notices"]["last_run_status"], CollectionRun.Status.FAILED)
++        self.assertTrue(prov["collections"]["notices"]["last_success_at"])
++        self.assertEqual(prov["collections"]["events"]["last_run_status"], "never")
++        self.assertTrue(data["notices"])                                 # 실패해도 마지막 성공 공지가 남음
++        self.assertEqual(set(data["meals"][0]), {"date", "meal_type", "items", "source_url", "collected_at"})
++        self.assertTrue(data["meals"][0]["collected_at"].startswith("2026-11-01T21:00"))  # 06:00 KST = 전날 21:00 UTC
++        self.assertNotIn("feedback", data)
++        self.assertEqual(date.fromisoformat(data["meals"][0]["date"]).isoformat(), data["meals"][0]["date"])
+diff --git a/campus/urls.py b/campus/urls.py
+index e31eb1b..d8263b1 100644
+--- a/campus/urls.py
++++ b/campus/urls.py
+@@ -16,6 +16,7 @@ urlpatterns = [
+     path("bus/", views.bus, name="bus"),
+     path("bus/live/<str:group>/", views.bus_live, name="bus_live"),
+     path("bus/nearest/", views.bus_nearest, name="bus_nearest"),
++    path("assistant/ask/", views.assistant_ask, name="assistant_ask"),
+     # PWA
+     path("manifest.webmanifest", pwa.manifest, name="manifest"),
+     path("sw.js", pwa.service_worker, name="service_worker"),
+diff --git a/campus/views.py b/campus/views.py
+index c70f2ec..6b401bd 100644
+--- a/campus/views.py
++++ b/campus/views.py
+@@ -9,13 +9,19 @@
+ 
+ from datetime import date, timedelta
+ 
++import json
++
++from django.conf import settings
++from django.core.cache import cache
+ from django.http import Http404, JsonResponse
+ from django.shortcuts import render
+ from django.utils import timezone
+ from django.views.decorators.cache import never_cache
++from django.views.decorators.csrf import ensure_csrf_cookie
++from django.views.decorators.http import require_POST
+ 
+ from . import bus as bus_data
+-from . import data, mock_data, tago
++from . import data, mock_data, rag, tago
+ from .bus_timetable import SOURCE as TIMETABLE_SOURCE
+ from .bus_timetable import TIMETABLES
+ 
+@@ -123,6 +129,7 @@ def home(request):
+     })
+ 
+ 
++@ensure_csrf_cookie  # 안내 칸의 POST 가 쿠키의 CSRF 토큰을 쓴다(저장된 화면에서도 동작하도록)
+ def meals(request):
+     today = timezone.localdate()
+     selected = _parse_date(request.GET.get("date"), today)
+@@ -146,6 +153,7 @@ def meals(request):
+         "section": section,
+         "meal_rows": _meal_rows(by_date.get(selected)),
+         "day_collected": selected in by_date,
++        "assistant_enabled": rag.is_enabled(),
+     })
+ 
+ 
+@@ -325,3 +333,57 @@ def bus_live(request, group):
+ def bus_nearest(request):
+     """홈 '학교 가는 버스' 한 줄: 모든 노선 중 학교에 가장 가까운 버스 1대(JSON). 홈을 열 때 한 번만 부른다."""
+     return JsonResponse(bus_data.nearest(), json_dumps_params={"ensure_ascii": False})
++
++
++# ── 롤리폴리 안내 (공통 RAG 엔진, D-073) ──────────────────
++
++RAG_ERRORS = {
++    "timeout": (504, "답변이 너무 오래 걸려서 멈췄어요. 잠시 뒤 다시 시도해 주세요."),
++    "network": (503, "지금은 안내 서버에 연결할 수 없어요. 잠시 뒤 다시 시도해 주세요."),
++    "rate_limited": (429, "질문이 너무 많아요. 잠시 뒤 다시 시도해 주세요."),
++    "rejected": (502, "안내 서버가 요청을 받지 않았어요. 관리자에게 알려 주세요."),
++    "bad_response": (502, "안내 서버의 응답을 읽지 못했어요. 잠시 뒤 다시 시도해 주세요."),
++}
++
++
++def _rag_limited(request) -> bool:
++    from .feedback import client_hash
++
++    key = f"rag-ask:{client_hash(request)}"
++    if cache.add(key, 1, 600):
++        return False
++    try:
++        count = cache.incr(key)
++    except ValueError:
++        cache.set(key, 1, 600)
++        return False
++    return count > settings.LOLYPOLY_RAG_LIMIT_PER_10MIN
++
++
++def _rag_error(kind: str):
++    code, message = RAG_ERRORS[kind]
++    resp = JsonResponse({"error": kind, "message": message}, status=code)
++    if code == 429:
++        resp["Retry-After"] = "60"
++    return resp
++
++
++@never_cache
++@require_POST
++def assistant_ask(request):
++    """식단 화면 안내 칸의 질문 1개 → 엔진. CSRF 는 미들웨어가 검사한다(X-CSRFToken). 답변 기록은 저장하지 않는다."""
++    if not rag.is_enabled():
++        raise Http404
++    try:
++        payload = json.loads(request.body.decode("utf-8") or "{}")
++    except (ValueError, UnicodeDecodeError):
++        payload = {}
++    question = str(payload.get("question") or "").strip() if isinstance(payload, dict) else ""
++    if not question or len(question) > rag.MAX_QUESTION:
++        return JsonResponse({"error": "invalid", "message": "질문을 1~500자로 적어 주세요."}, status=400)
++    if _rag_limited(request):
++        return _rag_error("rate_limited")
++    try:
++        return JsonResponse(rag.ask(question, "ko"), json_dumps_params={"ensure_ascii": False})
++    except rag.RagError as exc:
++        return _rag_error(exc.kind)
+diff --git a/config/settings.py b/config/settings.py
+index 1cb201f..9cf0058 100644
+--- a/config/settings.py
++++ b/config/settings.py
+@@ -221,6 +221,17 @@ LOLYPOLY_COLLECT_INTERVAL_DAYS = {
+     "bus": env_int("LOLYPOLY_INTERVAL_BUS", 7),
+ }
+ 
++# 롤리폴리 안내(공통 RAG 엔진, D-073). 둘 다 있어야 켜진다. 키는 서버에서만 쓰고 화면에 보내지 않는다.
++# 주소는 https 만 허용한다. 개발용 http 는 127.0.0.1/localhost 일 때만 받는다.
++_rag_url = os.environ.get("LOLYPOLY_RAG_API_URL", "").strip()
++LOLYPOLY_RAG_API_URL = _rag_url if _rag_url.startswith("https://") or _rag_url.startswith(
++    ("http://127.0.0.1", "http://localhost")) else ""
++LOLYPOLY_RAG_APP_KEY = os.environ.get("LOLYPOLY_RAG_APP_KEY", "").strip()
++# 앱 → 엔진 대기 시간(초). 엔진의 생성 답변은 CPU에서 수십 초 걸린다(정형 조회는 수 ms). 브라우저는 이보다 조금 더 기다린다.
++LOLYPOLY_RAG_TIMEOUT_SEC = env_int("LOLYPOLY_RAG_TIMEOUT_SEC", 60)
++# 브라우저(접속 주소 묶음)당 10분에 보낼 수 있는 질문 수
++LOLYPOLY_RAG_LIMIT_PER_10MIN = env_int("LOLYPOLY_RAG_LIMIT_PER_10MIN", 20)
++
+ # 버스: 국토교통부 TAGO OpenAPI (공공데이터포털). 키가 없으면 버스 화면은 '설정 필요' 안내만 보여 준다.
+ TAGO_SERVICE_KEY = os.environ.get("TAGO_SERVICE_KEY", "").strip()
+ 
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index 05d26e6..c3299a9 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -76,3 +76,4 @@
+ | D-070 | **번개 택시방**(택시 합승 전용 익명 임시 채팅)을 범위에 포함. 로그인한 학생 전체, 정원 2~4명(방장 포함) 선착순, 방장 열린 방 1개·참여 2개, 출발 1시간 뒤 자동 닫힘, 닫히면 학생 화면에서 즉시 사라지고 7일 뒤 서버 삭제(처리 전 신고는 처리 후 7일). 신고는 택시 전용 표(TaxiReport) | 사용자 요청(2026-11-11): 같은 방향 학생끼리 택시를 빨리 모으고 흔적 없이 끝내기. 용도를 택시로 좁혀 운영·신고 기준을 단순하게. 기존 Report 제약 변경 마이그레이션 위험을 피해 신고 표 분리 | 2026-11-11 | 잠정 | 시범 운영 의견, 다른 용도 요청, 신고·악용 사례 |
+ | D-071 | 택시방 실시간은 **3초 폴링**(`/community/taxi/<id>/messages/?after=`), 웹소켓·SSE 미도입. 화면이 숨겨지면 멈춤 | 학교 PC가 waitress(WSGI)라 웹소켓은 ASGI 서버·운영 변경이 필요하고, SSE는 연결마다 작업자를 붙잡아 사이트 전체가 느려질 위험. 택시 약속은 몇 초 지연이 문제되지 않음. 실측: 메시지 도착 약 2.6초(로컬) | 2026-11-11 | 잠정 | 동시 참여자가 많아 요청 부하가 문제될 때, 즉시성 요구가 생길 때 |
+ | D-072 | 커뮤니티 운영자 상태 처리 전이표: 숨기기는 공개(`VISIBLE`)만, 복구는 숨김(`HIDDEN`)만, 삭제 확정은 공개·숨김·작성자 삭제(내용 남음)만. 내용이 지워진 것(`purged_at`)은 상태와 상관없이 종단(세 처리 모두 거절). 신고 종료·이용 제한·해제는 상태 제한 없음. 판정은 서비스(`community/services.py`)에서 트랜잭션 안 DB 현재 값으로 하고, 거절은 아무것도 바꾸지 않음. 화면은 가능한 처리만 보이고 거절 사유를 같은 화면(200)에 표시 | ERR-011: 작성자가 지운 글이 숨기기→복구로 다시 공개되고 중복 제출이 두 번 기록됨. 화면만 막으면 직접 요청·겹친 요청이 통과하므로 서비스에서 판정. 폼(`ModerationForm`)은 택시방 운영 화면과 같이 쓰므로 바꾸지 않고 표시만 거름 | 2026-11-17 | 잠정 | 운영자가 지운 글을 되살려야 하는 정당한 사례가 생길 때, 이미 오염된 행 정리 방법을 정할 때 |
++| D-073 | **롤리폴리 안내(공통 RAG 엔진 연결)**: 식단 화면 아래 질문 칸. 브라우저 → 같은 출처 `POST /assistant/ask/`(Django CSRF, 비로그인 허용 = 식단 화면과 같은 공개 범위) → 서버가 `LOLYPOLY_RAG_API_URL` 의 `/v1/chat` 을 앱 키(`LOLYPOLY_RAG_APP_KEY`, 서버 환경변수만)로 호출. 지금 질문 하나만 보내고 대화 기록·계정·커뮤니티·의견은 보내지 않음, 답변 기록은 화면에만(저장 안 함). 둘 중 하나라도 비면 기능 꺼짐(칸 숨김·주소 404). 앱→엔진 60초, 브라우저 75초, 접속 주소 묶음당 10분 20회. 공개 수집 결과는 `export_rag`(또는 `collect_all --rag-export`)로 허용 필드만 JSON 으로 내보내 엔진이 적재 | 학생 질문(오늘 점심·장학 조건)에 출처와 함께 답하되 키를 브라우저에 두지 않기 위해 서버 중계. 엔진은 별도 저장소(lovesome0405/chatbot) | 2026-11-19 | 잠정 | 엔진 운영 위치·HTTPS 주소 확정 시, 시험 사용 의견, 생성 지연이 학교 PC·터널 제한 시간에 걸릴 때 |
+diff --git a/docs/PROGRESS.md b/docs/PROGRESS.md
+index 8039da7..7871cfc 100644
+--- a/docs/PROGRESS.md
++++ b/docs/PROGRESS.md
+@@ -2,6 +2,12 @@
+ 
+ 마지막 갱신: 2026-11-17 · 개발 기준: **v0.4.1-beta** (기능 이력은 README, 오류 이력은 `docs/ERROR_LOG.md`) · 현재 단계: **v0.4.1-beta(오류 수정) `main` 반영 — 학교 PC 반영은 사용자 update 실행 후 확인**
+ 
++## 2026-11-19 롤리폴리 안내(공통 RAG 엔진 연결, D-073) — 브랜치 `claude/rag-assistant`, 미병합
++
++- 실제 구현: 식단 화면 질문 칸 + 서버 중계(`/assistant/ask/`, CSRF·서버 키·요청 제한) + `export_rag`·`collect_all --rag-export`. 기본 꺼짐(환경변수 2개 필요). 마이그레이션 없음.
++- 검증(클라우드 Linux, 학교 PC 아님): `test` 293개 통과, 브라우저 E2E 14/14(실제 엔진 + qwen2.5:3b). 실기기·Render·학교 PC 미확인.
++- 남은 것(사용자): 엔진을 어디서 계속 돌릴지와 HTTPS 주소 결정 → 그 뒤 환경변수 설정. `main` 병합은 Render 자동 배포를 시작할 수 있으므로 승인 후.
++
+ ## 2026-11-17 v0.4.1-beta 오류 수정 (`main` 반영)
+ 
+ - 실제 구현: 탈퇴 시 택시방 정리(ERR-010), 운영자 처리 상태 전이 검증(ERR-011, D-072), 로그인·가입 횟수 제한 창 보존(ERR-012), 택시방 3초 확인 쓰기 제거(ERR-013), 시각 입력칸 이름(ERR-014). 마이그레이션 없음.
+diff --git a/static/css/app.css b/static/css/app.css
+index fa14c2d..0b2adb1 100644
+--- a/static/css/app.css
++++ b/static/css/app.css
+@@ -797,3 +797,32 @@ body.has-install-sheet .app-main { padding-bottom: calc(var(--nav-h) + 320px + e
+ .taxi-msg__report { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; font-size: 12px; color: var(--color-muted); }
+ .taxi-composer { display: flex; gap: 8px; margin-top: 10px; }
+ .taxi-composer input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border: 1.5px solid var(--color-border); border-radius: var(--radius); font: inherit; background: var(--color-surface); }
++
++/* 롤리폴리 안내(D-073): 식단 화면 아래 질문 칸 */
++.assistant { margin-top: var(--gap); padding-top: 12px; border-top: 2px dashed var(--color-border); }
++.assistant__hint { margin: 4px 0 10px; font-size: .9rem; }
++.assistant__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
++.assistant__chips .button { min-height: 44px; text-align: left; white-space: normal; }
++.assistant__log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
++.assistant__msg { padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--color-border); background: var(--color-surface);
++  overflow-wrap: anywhere; }
++.assistant__msg p { margin: 0 0 6px; }
++.assistant__msg--user { align-self: flex-end; max-width: 90%; background: var(--color-primary-soft); border-color: transparent; }
++.assistant__msg--bot.is-insufficient_evidence, .assistant__msg--bot.is-clarification_needed { background: var(--color-stale-bg); }
++.assistant__msg--bot.is-partial .assistant__gap { color: var(--color-error-text); font-weight: 600; }
++.assistant__label { font-weight: 700; color: var(--color-stale-text); }
++.assistant__cites { margin: 8px 0 0; padding-left: 0; list-style: none; font-size: .88rem; }
++.assistant__cite { padding: 6px 0; border-top: 1px dotted var(--color-border); }
++.assistant__cite-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
++.assistant__cite-head a { color: var(--color-primary); }
++.assistant__badge { font-size: .78rem; padding: 1px 6px; border-radius: 99px; background: var(--color-mint); color: var(--color-text); }
++.assistant__cite-meta { color: var(--color-muted); }
++.assistant__quote { margin: 4px 0 0; padding-left: 8px; border-left: 3px solid var(--color-border); color: var(--color-text); }
++.assistant__status { min-height: 1.4em; margin: 8px 0; color: var(--color-muted); }
++.assistant__status.is-error { color: var(--color-error-text); background: var(--color-error-bg); padding: 8px 10px; border-radius: var(--radius); }
++.assistant__form { display: flex; gap: 8px; }
++.assistant__form input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 10px; font: inherit; border: 2px solid var(--color-text);
++  border-radius: var(--radius); background: #fff; }
++.assistant__form input:focus { outline: 3px solid var(--color-focus); outline-offset: 1px; }
++.assistant__form .button { min-height: 44px; }
++.assistant__tools { margin-top: 8px; }
+diff --git a/static/js/assistant.js b/static/js/assistant.js
+new file mode 100644
+index 0000000..00f5001
+--- /dev/null
++++ b/static/js/assistant.js
+@@ -0,0 +1,203 @@
++/* 롤리폴리 안내(D-073) — 식단 화면의 작은 질문 칸.
++ * - 같은 출처 POST(/assistant/ask/) + CSRF 헤더. 지금 질문 하나만 보낸다(대화 기록·개인 정보는 보내지 않음).
++ * - 보내는 중에는 버튼·입력을 잠가 중복 전송을 막는다. 대화는 화면에만 보이고 저장하지 않는다(새로고침하면 사라짐).
++ * - 다섯 상태: answered / partial / insufficient_evidence / clarification_needed / unavailable.
++ *   장애(연결 실패·429·시간 초과·unavailable)는 대화 기록이 아니라 상태 줄에 보여 주고, 입력을 되살려 다시 시도할 수 있게 한다.
++ * - 답과 인용은 textContent 로만 넣는다. 링크는 http(s) 주소만 만든다.
++ */
++(function () {
++  "use strict";
++  const root = document.querySelector("[data-assistant]");
++  if (!root) return;
++
++  const endpoint = root.dataset.endpoint;
++  const form = root.querySelector("[data-assistant-form]");
++  const input = root.querySelector("[data-assistant-input]");
++  const send = root.querySelector("[data-assistant-send]");
++  const log = root.querySelector("[data-assistant-log]");
++  const statusEl = root.querySelector("[data-assistant-status]");
++  const retry = root.querySelector("[data-assistant-retry]");
++  const clear = root.querySelector("[data-assistant-clear]");
++  const examples = root.querySelectorAll("[data-assistant-example]");
++  const BROWSER_TIMEOUT_MS = 75000;   // 서버(앱→엔진 60초)보다 조금 길게
++  const MAX_ITEMS = 12;               // 화면에 남기는 말풍선 수
++  const defaultPlaceholder = input.placeholder;
++  let busy = false;
++  let lastQuestion = "";
++  let pendingClarify = "";            // 되묻기를 받은 원래 질문(다음 입력과 합쳐 한 문장으로 보낸다)
++
++  function csrfToken() {
++    const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
++    if (m) return decodeURIComponent(m[1]);
++    const field = form.querySelector("input[name=csrfmiddlewaretoken]");
++    return field ? field.value : "";
++  }
++
++  function setBusy(on) {
++    busy = on;
++    send.disabled = on;
++    input.readOnly = on;
++    examples.forEach((b) => { b.disabled = on; });
++    root.setAttribute("aria-busy", on ? "true" : "false");
++  }
++
++  function setStatus(text, tone) {
++    statusEl.textContent = text || "";
++    statusEl.className = "assistant__status" + (tone ? ` is-${tone}` : "");
++  }
++
++  function el(tag, cls, text) {
++    const n = document.createElement(tag);
++    if (cls) n.className = cls;
++    if (text != null) n.textContent = text;
++    return n;
++  }
++
++  function safeUrl(url) {
++    return typeof url === "string" && /^https?:\/\//.test(url) ? url : "";
++  }
++
++  function trim() {
++    while (log.children.length > MAX_ITEMS) log.removeChild(log.firstChild);
++    clear.hidden = log.children.length === 0;
++  }
++
++  function addUser(text) {
++    const li = el("li", "assistant__msg assistant__msg--user");
++    li.appendChild(el("span", "visually-hidden", "나: "));
++    li.appendChild(el("p", "", text));
++    log.appendChild(li);
++    trim();
++    return li;
++  }
++
++  const LABELS = {
++    answered: "",
++    partial: "일부만 확인했어요",
++    insufficient_evidence: "자료에서 찾지 못했어요",
++    clarification_needed: "조금 더 알려 주세요",
++  };
++
++  function renderCitations(cites) {
++    const ol = el("ol", "assistant__cites");
++    cites.forEach((c, i) => {
++      const li = el("li", "assistant__cite");
++      const head = el("p", "assistant__cite-head");
++      head.appendChild(el("span", "assistant__cite-no", `[${i + 1}] `));
++      const url = safeUrl(c.url);
++      if (url) {
++        const a = el("a", "", c.title || url);
++        a.href = url;
++        a.target = "_blank";
++        a.rel = "noopener noreferrer";
++        head.appendChild(a);
++      } else {
++        head.appendChild(el("span", "", c.title || "자료"));
++      }
++      head.appendChild(el("span", "assistant__badge", c.source_label || "자료"));
++      li.appendChild(head);
++      const meta = [c.locator, c.as_of, c.note].filter(Boolean).join(" · ");
++      if (meta) li.appendChild(el("p", "assistant__cite-meta", meta));
++      if (c.quote) li.appendChild(el("blockquote", "assistant__quote", c.quote));
++      ol.appendChild(li);
++    });
++    return ol;
++  }
++
++  function addAnswer(data) {
++    const li = el("li", `assistant__msg assistant__msg--bot is-${data.status}`);
++    li.appendChild(el("span", "visually-hidden", "안내: "));
++    const label = LABELS[data.status];
++    if (label) li.appendChild(el("p", "assistant__label", label));
++    const lines = String(data.answer || "").split("\n").filter(Boolean);
++    lines.forEach((line) => {
++      const gap = line.startsWith("[일부는 확인하지 못했어요]");
++      li.appendChild(el("p", gap ? "assistant__gap" : "assistant__line", gap ? line.replace("[일부는 확인하지 못했어요]", "확인 못 한 부분:") : line));
++    });
++    if (data.citations && data.citations.length) li.appendChild(renderCitations(data.citations));
++    log.appendChild(li);
++    trim();
++    li.scrollIntoView({ block: "nearest" });
++  }
++
++  function fail(message, question, bubble) {
++    if (bubble && bubble.parentNode) bubble.parentNode.removeChild(bubble);   // 실패한 질문은 기록에서 빼고 입력으로 되돌린다
++    trim();
++    setStatus(message, "error");
++    input.value = question;          // 입력 복구
++    retry.hidden = false;
++    input.focus();
++  }
++
++  async function ask(rawQuestion) {
++    const typed = String(rawQuestion || "").trim();
++    if (!typed || busy) return;
++    // 되묻기에 대한 짧은 답(예: "점심")만 원래 질문과 합친다. 새 질문을 쓰면 새 질문으로 보낸다.
++    const shortReply = !/[?？]/.test(typed) && typed.split(/\s+/).length <= 4;
++    const question = (pendingClarify && shortReply ? `${pendingClarify} ${typed}` : typed).slice(0, 500);
++    lastQuestion = question;
++    retry.hidden = true;
++    const bubble = addUser(typed);
++    input.value = "";
++    setBusy(true);
++    setStatus("답을 찾는 중이에요…");
++    const started = Date.now();
++    const tick = window.setInterval(() => {
++      const s = Math.round((Date.now() - started) / 1000);
++      if (s >= 5) setStatus(`답을 찾는 중이에요… ${s}초 (문장 답변은 1분 가까이 걸릴 수 있어요)`);
++    }, 1000);
++    const ctrl = new AbortController();
++    const timer = window.setTimeout(() => ctrl.abort(), BROWSER_TIMEOUT_MS);
++    try {
++      const res = await fetch(endpoint, {
++        method: "POST",
++        credentials: "same-origin",
++        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
++        body: JSON.stringify({ question }),
++        signal: ctrl.signal,
++      });
++      let data = null;
++      try { data = await res.json(); } catch (e) { data = null; }
++      if (!res.ok) {
++        const msg = (data && data.message) || (res.status === 403 ? "화면이 오래돼서 보내지 못했어요. 새로고침한 뒤 다시 시도해 주세요." : "잠시 뒤 다시 시도해 주세요.");
++        fail(msg, typed, bubble);
++        return;
++      }
++      if (!data || data.status === "unavailable") {
++        fail("안내 서버에 잠시 문제가 있어요. 공식 식단 페이지를 확인하거나 다시 시도해 주세요.", typed, bubble);
++        return;
++      }
++      pendingClarify = data.status === "clarification_needed" ? question : "";
++      input.placeholder = pendingClarify ? "위 질문에 대한 답을 적어 주세요 (예: 점심)" : defaultPlaceholder;
++      addAnswer(data);
++      setStatus("");
++      if (pendingClarify) input.focus();
++    } catch (e) {
++      fail(e && e.name === "AbortError" ? "답변이 너무 오래 걸려서 멈췄어요. 다시 시도해 주세요." : "연결이 끊겼어요. 인터넷 연결을 확인하고 다시 시도해 주세요.", typed, bubble);
++    } finally {
++      window.clearInterval(tick);
++      window.clearTimeout(timer);
++      setBusy(false);
++    }
++  }
++
++  form.addEventListener("submit", (event) => {
++    event.preventDefault();
++    ask(input.value);
++  });
++  examples.forEach((b) => b.addEventListener("click", () => { pendingClarify = ""; ask(b.textContent); }));
++  retry.addEventListener("click", () => {
++    // 되묻기에 답하던 중이었다면 합친 질문(lastQuestion)을 그대로 다시 보낸다
++    const q = pendingClarify ? lastQuestion : (input.value || lastQuestion);
++    pendingClarify = "";
++    ask(q);
++  });
++  clear.addEventListener("click", () => {
++    log.textContent = "";
++    pendingClarify = "";
++    input.placeholder = defaultPlaceholder;
++    setStatus("");
++    retry.hidden = true;
++    trim();
++  });
++})();
+diff --git a/templates/campus/_assistant.html b/templates/campus/_assistant.html
+new file mode 100644
+index 0000000..cc7b8a7
+--- /dev/null
++++ b/templates/campus/_assistant.html
+@@ -0,0 +1,24 @@
++{% load static %}
++{# 롤리폴리 안내(D-073): 식단·학사일정·장학 공개 자료로 답하는 작은 질문 칸. 키·주소는 서버에만 있다. #}
++<section class="card assistant" aria-labelledby="assistant-title" data-assistant data-endpoint="{% url 'campus:assistant_ask' %}">
++  <h2 class="section-title" id="assistant-title">롤리폴리 안내에게 물어보기</h2>
++  <p class="muted assistant__hint">식단·학사일정·장학 공개 자료에서 찾아서 출처와 함께 답해요. 대화는 이 화면에만 보이고 저장하지 않아요.</p>
++  <div class="assistant__chips" role="group" aria-label="예시 질문">
++    <button type="button" class="button" data-assistant-example>오늘 점심 뭐야?</button>
++    <button type="button" class="button" data-assistant-example>성적우수장학금은 신입생도 1학기에 받을 수 있어?</button>
++  </div>
++  <ol class="assistant__log" data-assistant-log aria-live="polite" aria-relevant="additions"></ol>
++  <p class="assistant__status" data-assistant-status role="status"></p>
++  <form class="assistant__form" data-assistant-form>
++    {% csrf_token %}
++    <label class="visually-hidden" for="assistant-q">질문</label>
++    <input id="assistant-q" name="question" type="text" maxlength="500" autocomplete="off" required
++           placeholder="예: 내일 저녁 메뉴 알려줘" data-assistant-input>
++    <button type="submit" class="button button--primary" data-assistant-send>보내기</button>
++  </form>
++  <div class="button-row assistant__tools">
++    <button type="button" class="button" data-assistant-retry hidden>다시 시도</button>
++    <button type="button" class="button button--ghost" data-assistant-clear hidden>대화 지우기</button>
++  </div>
++</section>
++<script src="{% static 'js/assistant.js' %}" defer></script>
+diff --git a/templates/campus/meals.html b/templates/campus/meals.html
+index 891772c..56e4187 100644
+--- a/templates/campus/meals.html
++++ b/templates/campus/meals.html
+@@ -53,4 +53,5 @@
+ {% endif %}
+ 
+ {% include "campus/_section_meta.html" with section=section %}
++{% if assistant_enabled %}{% include "campus/_assistant.html" %}{% endif %}
+ {% endblock %}
+-- 
+2.43.0
+

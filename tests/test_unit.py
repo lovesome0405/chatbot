@@ -94,7 +94,7 @@ def test_router_rules():
     p = lo.plan("오늘 점심 뭐야?", "ko", {}, now)[0]
     assert (p.kind, p.params) == ("structured", {"date": "2026-11-10", "meal_type": "lunch"})
     parts = lo.plan("오늘 점심 메뉴랑 학과수석 입학자 장학금 혜택 알려줘", "ko", {}, now)
-    assert [x.kind for x in parts] == ["structured", "document"]
+    assert [(x.kind, x.intent) for x in parts] == [("structured", "meal"), ("structured", "scholarship_row")]   # v0.5.0
     ctx = ma.validate_context({"course_id": "palace-history-course", "ranked_route_ids": ["bogus", "palace-history-course"],
                                "project": "lolypoly"})
     assert ctx == {"course_id": "palace-history-course", "ranked_route_ids": ["palace-history-course"], "ranked_place_ids": []}
@@ -266,3 +266,138 @@ def test_prompt_is_language_specific():
 def test_topic_particle_follows_final_consonant():
     from ragcore.textnorm import topic
     assert topic("근정전 월대") == "근정전 월대는" and topic("근정전") == "근정전은" and topic("Jongmyo") == "Jongmyo은(는)"
+
+
+# ── v0.4.0: 영어 주장 검사 ─────────────────
+def test_wrong_romanized_district_dropped():
+    """M14 회귀: 근거는 '종로구'인데 영어 주장이 'Jungmu-gu'라고 쓰면 버린다. 맞는 표기는 통과."""
+    from adapters.maru.adapter import MaruAdapter
+
+    ad = MaruAdapter()
+    evs = [_ev("E1", "종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구", "종묘 (Jongmyo Shrine)")]
+    bad = {"text": "Jongmyo Shrine is a royal heritage site in Jungmu-gu district of Seoul.",
+           "citations": [{"id": "E1", "quote": "종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구"}]}
+    good = {"text": "Jongmyo Shrine is a royal heritage site in Jongno-gu.",
+            "citations": [{"id": "E1", "quote": "종묘 (Jongmyo Shrine) — 왕실 유적 / 종로구"}]}
+    v = verify([bad, good], evs, question="Tell me about Jongmyo Shrine", aliases=ad.aliases,
+               glossary=ad.term_glossary, term_pattern=ad.term_pattern)
+    assert [t for t, _ in v.claims] == [good["text"]]
+    assert v.dropped[0]["reason"] == "term_not_in_cited_source"
+
+
+def test_english_echo_needs_translated_support():
+    """N02·N19 회귀: 질문을 되풀이한 영어 답은 질문 단어를 별칭으로 한국어로 바꿔 근거에서 찾아야 남는다."""
+    from adapters.lolypoly.adapter import LolypolyAdapter
+    from adapters.maru.adapter import MaruAdapter
+
+    maru, loly = MaruAdapter(), LolypolyAdapter()
+    gbg = _ev("E1", "경복궁 (Gyeongbokgung Palace) — 궁궐 / 종로구")
+    ghg = _ev("E2", "조선 후기 궁궐 중 하나로 비교적 조용하게 궁궐 분위기를 느낄 수 있습니다.")
+    q = "I want a quiet palace without big crowds"
+    v = verify([{"text": "Yes, Gyeongbokgung Palace is a quiet palace without big crowds.",
+                 "citations": [{"id": "E1", "quote": "경복궁 (Gyeongbokgung Palace) — 궁궐 / 종로구"}]},
+                {"text": "Gyeonghuigung is a quiet palace without big crowds.",
+                 "citations": [{"id": "E2", "quote": "비교적 조용하게 궁궐 분위기를 느낄 수 있습니다"}]}],
+               [gbg, ghg], question=q, aliases=maru.aliases)
+    assert [t for t, _ in v.claims] == ["Gyeonghuigung is a quiet palace without big crowds."]
+    row1 = _ev("E1", "[장학제도 표] 구분: 교내 | 종류: 이사장 장학금 | 수혜자격: 입학성적 전체 수석자 1명")
+    v = verify([{"text": "No, there is no scholarship for students who work for the college.",
+                 "citations": [{"id": "E1", "quote": "[장학제도 표] 구분: 교내 | 종류: 이사장 장학금 | 수혜자격: 입학성적 전체 수석자 1명"}]}],
+               [row1], question="Is there a scholarship for students who work for the college?", aliases=loly.aliases)
+    assert not v.claims and v.dropped[0]["reason"] == "echo_unsupported"
+
+
+def test_client_ip_ignores_forwarded_header_by_default():
+    from types import SimpleNamespace
+
+    from ragcore.api import client_ip
+
+    req = SimpleNamespace(client=SimpleNamespace(host="10.0.0.5"), headers={"x-forwarded-for": "1.2.3.4, 9.9.9.9"})
+    assert client_ip(req, 0) == "10.0.0.5"          # 헤더를 믿지 않음(꾸민 헤더로 제한 회피 불가)
+    assert client_ip(req, 1) == "9.9.9.9"           # 믿는 프록시 1단: 그 프록시가 붙인 마지막 값
+    assert client_ip(req, 3) == "10.0.0.5"          # 체인이 짧으면 직접 연결 주소
+
+
+def test_place_hint_not_counted_as_question_echo():
+    """'What is this place?'에 앱이 붙인 장소 힌트 때문에 맞는 답이 '질문 베끼기'로 버려지지 않는다(H07)."""
+    evs = [_ev("E1", "창덕궁 (Changdeokgung Palace) — 궁궐 / 종로구")]
+    claim = {"text": "This place is Changdeokgung Palace (창덕궁).",
+             "citations": [{"id": "E1", "quote": "창덕궁 (Changdeokgung Palace) — 궁궐 / 종로구"}]}
+    hinted = "What is this place? (here = Changdeokgung Palace / 창덕궁)"
+    assert not verify([claim], evs, question=hinted).claims            # 힌트까지 질문으로 보면 버려짐(이전 동작)
+    assert verify([claim], evs, question="What is this place?").claims  # 원래 질문과 비교하면 남음
+
+
+# ── v0.5.0 ───────────────────────────────
+def test_truncated_json_keeps_completed_claims():
+    from ragcore.generation import parse_claims_json
+
+    raw = ('{"claims": [{"text": "A", "citations": [{"id": "E1", "quote": "x"}]}, '
+           '{"text": "B", "citations": [{"id": "E2", "quote": "y')
+    assert parse_claims_json(raw) == {"claims": [{"text": "A", "citations": [{"id": "E1", "quote": "x"}]}]}
+
+
+def test_extractive_quotes_whole_sentences_and_needs_overlap():
+    from ragcore.extractive import extract
+
+    evs = [_ev("E1", "인사동은 전통 공예 상점이 모인 거리입니다. 주말에는 붐빕니다."),
+           _ev("E2", "[장학제도 표] 구분: 교내 | 종류: 근로 장학금 | 지급액 및 기간: 해당학기 교육비의 반액 지급")]
+    out = extract("인사동 전통 공예 거리", "ko", evs, {})
+    assert out[0]["citations"][0] == {"id": "E1", "quote": "인사동은 전통 공예 상점이 모인 거리입니다."}
+    assert extract("근로 장학금 반액", "ko", evs, {})[0]["citations"][0]["quote"].startswith("[장학제도 표]")  # 표 행은 통째로
+    assert extract("전혀 무관한 질문", "ko", evs, {}) == []
+
+
+def test_short_quote_expands_to_sentence_for_display():
+    from ragcore.citations import expand_quote
+
+    src = "첫 문장입니다. " + "가" * 200 + ". 조선 왕실의 제례 공간으로 알려져 있습니다. 끝 문장입니다."
+    assert expand_quote("왕실의 제례 공간", src) == "조선 왕실의 제례 공간으로 알려져 있습니다."
+    assert expand_quote("x", "짧은 원문") == "짧은 원문"
+
+
+def test_cache_key_ignores_punctuation_but_not_context():
+    from ragcore.engine import cache_key
+
+    a = cache_key("maru", "What is this place?", "en", {"place_id": "jongmyo-shrine"})
+    assert a == cache_key("maru", "what is this place", "en", {"place_id": "jongmyo-shrine"})
+    assert a != cache_key("maru", "What is this place?", "en", {"place_id": "changdeokgung-palace"})
+    assert cache_key("maru", "雨の日はどこがいい？", "en", {}) != cache_key("maru", "あまり歩かないコースはある？", "en", {})
+
+
+def test_wrong_language_and_no_overlap_claims_dropped():
+    """1.5B 평가에서 나온 유형: 영어 질문에 중국어·한국어로 답, 근거와 단어가 하나도 안 겹치는 한국어 주장."""
+    evs = [_ev("E1", "서울우리소리박물관 (Seoul Folk Music Museum) — 박물관 / 종로구"),
+           _ev("E2", "추천 이유: 우천 시 이동 부담을 줄이면서 왕실문화를 연결합니다.")]
+    cite = lambda e, q: [{"id": e, "quote": q}]
+    v = verify([{"text": "您可以去 Seoul Folk Music Museum 听民谣。", "citations": cite("E1", "서울우리소리박물관")},
+                {"text": "서울우리소리박물관에서 들을 수 있어요.", "citations": cite("E1", "서울우리소리박물관")},
+                {"text": "You can hear them at the Seoul Folk Music Museum (서울우리소리박물관).", "citations": cite("E1", "서울우리소리박물관")}],
+               evs, question="Where can I hear folk songs?", lang="en")
+    assert [t for t, _ in v.claims] == ["You can hear them at the Seoul Folk Music Museum (서울우리소리박물관)."]
+    assert [d["reason"] for d in v.dropped] == ["wrong_language", "wrong_language"]
+    v = verify([{"text": "학과수석 장학금 정보를 제공해 드립니다.", "citations": cite("E2", "우천 시 이동 부담을 줄이면서")}],
+               evs, question="학과수석 장학금 알려줘", lang="ko")
+    assert not v.claims and v.dropped[0]["reason"] == "no_overlap_with_citation"
+
+
+def test_question_topic_word_must_be_in_cited_source():
+    """N22(1.5B): 날짜는 근거에 있지만 주제어 '졸업식'은 없는 근거(광복절 대체공휴일)를 인용한 답은 버린다."""
+    evs = [_ev("E1", "학사일정 광복절 대체공휴일 | 과정: 공통 | 기간: 2026-08-17"),
+           _ev("E2", "성수기 관람객으로 2026년 9월 2일(수)부터 2026년 10월 31일(토)까지 근정전 월대 출입을 제한합니다")]
+    v = verify([{"text": "졸업식은 2026년 8월 17일에 열립니다.", "citations": [{"id": "E1", "quote": "기간: 2026-08-17"}]}],
+               evs, question="졸업식 날짜 알려줘", lang="ko")
+    assert not v.claims and v.dropped[0]["reason"] == "topic_not_in_citation" and v.dropped[0]["words"] == ["졸업식"]
+    ok = verify([{"text": "2026-10-31까지 올라갈 수 없어요.", "citations": [{"id": "E2", "quote": "근정전 월대 출입을 제한합니다"}]}],
+                evs, question="근정전 월대 지금 올라갈 수 있어?", lang="ko")
+    assert ok.claims                                     # 동사(올라갈)는 비교하지 않음
+    lib = [_ev("E1", "재학생은 한 번에 5권까지 14일 동안 대출할 수 있다.")]
+    assert verify([{"text": "도서는 5권까지 빌릴 수 있습니다.", "citations": [{"id": "E1", "quote": "5권까지 14일 동안 대출할 수 있다"}]}],
+                  lib, question="도서는 몇 권까지 빌릴 수 있어?", lang="ko").claims      # '빌릴 수'는 동사라 비교 안 함
+
+
+def test_english_now_is_time_sensitive_but_know_is_not():
+    from ragcore.adapter import is_time_sensitive
+
+    assert is_time_sensitive("Can I go up to the Geunjeongjeon terrace now?")
+    assert not is_time_sensitive("I want to know about Jongmyo")

@@ -46,7 +46,7 @@ def retrieval_eval(engine, qs, modes) -> dict:
     ari_items = ari_baseline.haystacks(ROOT / "data" / "maru")
     rows = {q["id"]: {"id": q["id"], "project": q["project"], "gold": q["gold_source_ids"]} for q in sq}
     for mode in modes + ["ari_baseline"]:
-        hits, n, lat = 0, 0, []
+        hits, n, lat, rr = 0, 0, [], []
         for q in sq:
             if mode == "ari_baseline":
                 if q["project"] != "maru":
@@ -67,6 +67,14 @@ def retrieval_eval(engine, qs, modes) -> dict:
                                  collections=part.collections, top_k=20)
                     lat.append((time.perf_counter() - t) * 1000)
                     top = unique_sources(r.rows, 3)
+                    top10 = unique_sources(r.rows, 10)
+            if mode == "ari_baseline":
+                top10 = ari_baseline.rank(q["question"], ari_items)[:10]
+            if part is None and mode != "ari_baseline":
+                top10 = []
+            # MRR(v0.4.0): 상위 10개 원본 중 첫 기대 출처의 역순위(없으면 0). Hit@3 이 같아도 정답 순위 차이를 본다
+            rank = next((i for i, sid in enumerate(top10, start=1) if sid in q["gold_source_ids"]), None)
+            rr.append(1 / rank if rank else 0.0)
             hit = bool(set(top) & set(q["gold_source_ids"]))
             if q.get("gold_locator") and mode != "ari_baseline" and part is not None:
                 rows[q["id"]].setdefault("row_hit", {})[mode] = any(q["gold_locator"] in x["locator"] for x in r.rows[:3])
@@ -74,6 +82,7 @@ def retrieval_eval(engine, qs, modes) -> dict:
             n += 1
             rows[q["id"]][mode] = {"hit": hit, "top3": top}
         out["modes"][mode] = {"hit_at_3": hits, "denominator": n, "rate": round(hits / n, 3) if n else None,
+                              "mrr_at_10": round(statistics.mean(rr), 3) if rr else None,
                               "mean_latency_ms": round(statistics.mean(lat), 1) if lat else None}
     loc = [q for q in sq if q.get("gold_locator")]
     out["table_row_hit_at_3"] = {m: sum(rows[q["id"]].get("row_hit", {}).get(m, False) for q in loc) for m in modes}

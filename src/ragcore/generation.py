@@ -48,9 +48,9 @@ The evidence is often in Korean even when the question is in English. That is ex
 Output a JSON object exactly like this example:
 {{"claims": [{{"text": "<one sentence answer>", "citations": [{{"id": "E1", "quote": "<exact words copied from evidence E1>"}}]}}]}}
 Rules:
-- Each quote must be copied character-for-character from that evidence (Korean stays Korean, no translation, no skipping words inside a quote).
+{quote_rule}
 - Keep Korean place names; you may add the romanized name in parentheses.
-- Use 1-3 short claims. Do not mix facts from different table rows in one claim.
+- {claims_rule} Do not mix facts from different table rows in one claim.
 - Never state dates, prices, opening hours or deadlines that are not written in the evidence.
 - If the question asks whether something is happening now or on a date, compare that date with the period written in the evidence and answer with the period.
 - Every claim must add a concrete detail from the evidence that the question does not already contain (a name, number, date, order or reason). Never just restate or repeat the question.
@@ -65,12 +65,25 @@ STYLE = {
 }
 
 
-def build_messages(question: str, language: str, evidences: list, today: str | None, persona: str) -> list[dict]:
+QUOTE_RULES = {
+    # full: 근거 문장을 통째로 베낌(v0.4.0까지). short: 원문 그대로 3~8단어만 → 출력 토큰이 크게 줄어 CPU 생성이 빨라진다(v0.5.0 기본)
+    "full": ("- Each quote must be copied character-for-character from that evidence (Korean stays Korean, no translation, "
+             "no skipping words inside a quote).", "Use 1-3 short claims."),
+    "short": ("- Each quote is 3 to 8 consecutive words copied character-for-character from that evidence (Korean stays Korean, "
+              "no translation). Keep it short: the server shows the full sentence.",
+              "Use 1-2 short claims, each one short sentence."),
+}
+
+
+def build_messages(question: str, language: str, evidences: list, today: str | None, persona: str,
+                   quote_style: str = "full") -> list[dict]:
     lang_name = {"ko": "Korean", "en": "English"}.get(language, language)
     blocks = "\n\n".join(
         f"<evidence id=\"{ev.eid}\" title=\"{ev.title}\" where=\"{ev.locator}\">\n{ev.text}\n</evidence>" for ev in evidences
     )
-    system = SYSTEM_PROMPT.format(language=lang_name, persona=persona or DEFAULT_PERSONA, style=STYLE.get(language, STYLE["en"]))
+    quote_rule, claims_rule = QUOTE_RULES.get(quote_style, QUOTE_RULES["full"])
+    system = SYSTEM_PROMPT.format(language=lang_name, persona=persona or DEFAULT_PERSONA, style=STYLE.get(language, STYLE["en"]),
+                                  quote_rule=quote_rule, claims_rule=claims_rule)
     user = (f"Today (Asia/Seoul): {today or 'unknown'}\nQuestion ({lang_name}): {question}\n\n"
             f"Evidence:\n{blocks}\n\nReturn JSON. Answer in {'Korean' if language == 'ko' else 'English'}.")
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
@@ -98,7 +111,7 @@ class Generator(Protocol):
     name: str
 
     def generate(self, question: str, language: str, evidences: list[Evidence], today: str | None = None,
-                 persona: str = "") -> GenOutput: ...
+                 persona: str = "", budget_s: float | None = None) -> GenOutput: ...
 
 
 class FakeGenerator:
@@ -109,7 +122,7 @@ class FakeGenerator:
     def __init__(self, bad_citation: bool = False, fail: bool = False, min_overlap: int = 1):
         self.bad_citation, self.fail, self.min_overlap = bad_citation, fail, min_overlap
 
-    def generate(self, question, language, evidences, today=None, persona=""):
+    def generate(self, question, language, evidences, today=None, persona="", budget_s=None):
         t = time.perf_counter()
         if self.fail:
             raise GenerationError("fake generator failure")
@@ -128,24 +141,39 @@ class FakeGenerator:
         return GenOutput(abstain=not claims, claims=claims, model=self.name, latency_ms=(time.perf_counter() - t) * 1000)
 
 
+class GenerationTimeout(GenerationError):
+    """생성 시간 상한(gen_budget_s)을 넘김 → 엔진이 원문 발췌로 답한다."""
+
+
 class OllamaGenerator:
-    def __init__(self, url: str, model: str, timeout_s: int = 180, format_mode: str = "json"):
+    def __init__(self, url: str, model: str, timeout_s: int = 180, format_mode: str = "json", budget_s: float = 0,
+                 max_tokens: int = 0, keep_alive: str = "", quote_style: str = "full"):
         # format_mode: "json"(기본) | "schema". 2026-11-17 실험: Ollama 0.12.6 + qwen2.5:3b에서 schema 제약 디코딩은
         # 근거가 명확해도 claims=[]만 반환해 기본값을 json 모드 + 예시 프롬프트로 두었다(reports/LLM-FORMAT.md).
         self.url, self.model, self.timeout, self.format_mode = url.rstrip("/"), model, timeout_s, format_mode
+        self.budget, self.max_tokens, self.keep_alive, self.quote_style = budget_s, max_tokens, keep_alive, quote_style
         self.name = f"ollama:{model}"
 
-    def generate(self, question, language, evidences, today=None, persona=""):
-        messages = build_messages(question, language, evidences, today, persona)
-        body = {"model": self.model, "messages": messages, "stream": False,
-                "format": SCHEMA if self.format_mode == "schema" else "json",
-                "options": {"temperature": 0, "seed": 7, "num_ctx": 4096}}
+    def generate(self, question, language, evidences, today=None, persona="", budget_s=None):
+        messages = build_messages(question, language, evidences, today, persona, self.quote_style)
+        options = {"temperature": 0, "seed": 7, "num_ctx": 4096}
+        if self.max_tokens:
+            options["num_predict"] = self.max_tokens
+        # think=False: Qwen3 계열의 '생각 모드'를 끈다(CPU에서 수십 초 더 걸림). 생각 모드가 없는 모델은 무시한다
+        body = {"model": self.model, "messages": messages, "stream": False, "think": False,
+                "format": SCHEMA if self.format_mode == "schema" else "json", "options": options}
+        if self.keep_alive:
+            body["keep_alive"] = self.keep_alive
         t = time.perf_counter()
+        budget = self.budget if budget_s is None else budget_s
+        timeout = min(self.timeout, budget) if budget else self.timeout
         try:
-            r = httpx.post(f"{self.url}/api/chat", json=body, timeout=self.timeout)
+            r = httpx.post(f"{self.url}/api/chat", json=body, timeout=timeout)
             r.raise_for_status()
             raw = r.json()["message"]["content"]
-            data = json.loads(raw)
+            data = parse_claims_json(raw)
+        except httpx.TimeoutException as exc:   # 연결을 끊으면 Ollama 도 생성을 멈춘다
+            raise GenerationTimeout(f"budget {timeout}s exceeded") from exc
         except (httpx.HTTPError, KeyError, json.JSONDecodeError) as exc:
             raise GenerationError(f"{type(exc).__name__}: {exc}") from exc
         claims = data.get("claims") if isinstance(data, dict) else None
@@ -161,9 +189,27 @@ class OllamaGenerator:
             return False
 
 
+def parse_claims_json(raw: str) -> dict:
+    """모델 출력 JSON 해석. 출력 길이 상한(num_predict)에 걸려 잘린 경우, 끝까지 완성된 주장만 살린다(v0.5.0).
+    살린 주장도 서버 인용 검증을 똑같이 거친다."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    # 마지막으로 완전히 닫힌 주장 객체 뒤에서 자르고 배열·객체를 닫아 본다
+    for m in reversed(list(re.finditer(r"\]\s*\}", raw))):
+        try:
+            return json.loads(raw[: m.end()] + "]}")
+        except json.JSONDecodeError:
+            continue
+    raise json.JSONDecodeError("unrecoverable", raw, 0)
+
+
 def build_generator(settings) -> Generator:
     if settings.generator == "ollama":
-        return OllamaGenerator(settings.ollama_url, settings.ollama_model, settings.ollama_timeout_s, settings.ollama_format)
+        return OllamaGenerator(settings.ollama_url, settings.ollama_model, settings.ollama_timeout_s, settings.ollama_format,
+                               budget_s=settings.gen_budget_s, max_tokens=settings.gen_max_tokens,
+                               keep_alive=settings.ollama_keep_alive, quote_style=settings.quote_style)
     if settings.generator == "fake":
         return FakeGenerator()
     raise ValueError(settings.generator)
