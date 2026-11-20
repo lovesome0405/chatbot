@@ -226,6 +226,14 @@ class LolypolyAdapter(Adapter):
         최고 점수 2 이상, 동점 행이 2개 이하일 때만 답하고 그 밖에는 None(문서 검색). 행끼리 섞지 않는다."""
         q = _content_tokens(textnorm.expand_query(part.text, self.aliases))
         rows = [r for r in store.chunks(PROJECT, "scholarship") if (r["structured"] or {}).get("cells")]
+        # 질문에 숫자 조건(2.5, 3.0, 1년간 …)이 있으면 그 값이 든 행만 후보(비고 열 포함). 없으면 정형 답을 만들지 않음
+        from ragcore.citations import key_values
+
+        vals = [v for v in key_values(part.text) if v]
+        if vals:
+            rows = [r for r in rows if all(v in r["text"] for v in vals)]
+            if not rows:
+                return None
         scored = []
         for r in rows:
             c = r["structured"]["cells"]
@@ -234,8 +242,8 @@ class LolypolyAdapter(Adapter):
         best = max((sc for sc, _ in scored), default=0)
         top = [r for sc, r in scored if sc == best]
         # 점수 1이어도, 겹친 말이 장학 '종류' 이름(근로·부사관·보훈 …)이고 그 행 하나뿐이면 그 행으로 답한다
-        kind_hit = best == 1 and len(top) == 1 and bool(
-            q & _content_tokens(textnorm.tokens(top[0]["structured"]["cells"].get("종류", ""))))
+        kind_hit = best == 1 and len(top) == 1 and (bool(vals) or bool(
+            q & _content_tokens(textnorm.tokens(top[0]["structured"]["cells"].get("종류", "")))))
         if (best < 2 and not kind_hit) or len(top) > 2:
             return None
         yes = _is_yes_no(part.text)

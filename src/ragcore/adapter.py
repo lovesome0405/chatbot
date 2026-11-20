@@ -27,6 +27,14 @@ TIME_SENSITIVE_TERMS = [
     "영업", "지금", "현재", "opening hours", "hours", "open", "fee", "price", "ticket", "admission", "closed", "deadline",
     "currently", "right now",
 ]
+# 영어 시점 단어는 단어 경계로만 잡는다('now'가 'know'·'snow' 안에서 잡히지 않게). v0.5.0
+_TIME_WORD_RE = re.compile(r"\b(now|today|tonight|this week|this weekend)\b", re.I)
+
+
+def is_time_sensitive(text: str) -> bool:
+    return has_any(text, TIME_SENSITIVE_TERMS) or bool(_TIME_WORD_RE.search(text or ""))
+
+
 _SPLIT = re.compile(r"\s*(?:그리고|그리고요|또한|,\s*and|\band also\b|\balso\b|\band\b|이랑|(?<=[가-힣])랑(?=\s)|하고(?=\s)|[?？])\s*")
 
 
@@ -82,7 +90,7 @@ class Adapter:
 
     def classify(self, text: str, lang: str, ctx: dict, now: datetime) -> Part:
         return Part(kind="document", text=text, needs_detail=has_any(text, DETAIL_TERMS),
-                    time_sensitive=has_any(text, TIME_SENSITIVE_TERMS))
+                    time_sensitive=is_time_sensitive(text))
 
     def plan(self, question: str, lang: str, ctx: dict, now: datetime) -> list[Part]:
         whole = self.classify(question, lang, ctx, now)

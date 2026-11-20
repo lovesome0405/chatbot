@@ -16,7 +16,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from ragcore import textnorm
-from ragcore.adapter import DETAIL_TERMS, TIME_SENSITIVE_TERMS, Adapter, Claim, Part, PartResult, SyncBatch, has_any
+from ragcore.adapter import DETAIL_TERMS, Adapter, Claim, Part, PartResult, SyncBatch, has_any, is_time_sensitive
 from ragcore.engine import citation_from
 from ragcore.models import Chunk, Citation, Document
 
@@ -206,7 +206,7 @@ class MaruAdapter(Adapter):
     # ── 라우팅 규칙 ─────────────────────────
     def classify(self, text: str, lang: str, ctx: dict, now: datetime) -> Part:
         low = text.lower()
-        ts = has_any(low, TIME_SENSITIVE_TERMS)
+        ts = is_time_sensitive(low)
         detail = has_any(low, DETAIL_TERMS)
         if has_any(low, RANKING_TERMS):
             return Part("structured", text, "ranking", params={"ids": ctx.get("ranked_route_ids", [])})

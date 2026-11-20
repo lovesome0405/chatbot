@@ -225,21 +225,43 @@ class PgStore:
             "from rag_document where project=%s and is_public", (project,)).fetchone()
         return row["v"]
 
-    def cache_get(self, project: str, key: str, version: str) -> dict | None:
+    # source: live(실시간 답을 그대로 저장) | warm(밤 작업, 검토 대기) | approved(사람이 '맞음') | rejected(사람이 '틀림')
+    def cache_get(self, project: str, key: str, version: str, require_review: bool = True) -> dict | None:
+        """저장된 답. 검토가 필요하면(기본) 밤 작업 답은 사람이 승인한 것만 내보낸다. 거절된 답은 내보내지 않는다."""
+        allowed = ("live", "approved") if require_review else ("live", "approved", "warm")
         row = self.conn.execute(
-            "update rag_answer_cache set hits = hits + 1 where project=%s and cache_key=%s and data_version=%s returning payload",
-            (project, key, version)).fetchone()
+            """update rag_answer_cache set hits = hits + 1
+               where project=%s and cache_key=%s and data_version=%s and source = any(%s) returning payload""",
+            (project, key, version, list(allowed))).fetchone()
         return row["payload"] if row else None
 
+    def cache_exists(self, project: str, key: str, version: str) -> str | None:
+        row = self.conn.execute("select source from rag_answer_cache where project=%s and cache_key=%s and data_version=%s",
+                                (project, key, version)).fetchone()
+        return row["source"] if row else None
+
     def cache_put(self, project: str, key: str, version: str, payload: dict, source: str = "live"):
+        """같은 자료 버전에서는 사람이 판정한 답(approved·rejected)과 검토 대기 답(warm)을 실시간 답으로 덮어쓰지 않는다.
+        자료가 바뀌면(data_version) 새 답으로 바뀌고 다시 검토 대상이 된다."""
         self.conn.execute(
             """insert into rag_answer_cache (project, cache_key, data_version, payload, source) values (%s, %s, %s, %s, %s)
                on conflict (project, cache_key) do update set data_version=excluded.data_version, payload=excluded.payload,
-                 source=excluded.source, created_at=now(), hits=0""",
+                 source=excluded.source, created_at=now(), hits=0
+               where rag_answer_cache.data_version <> excluded.data_version
+                  or rag_answer_cache.source = 'live'
+                  or (rag_answer_cache.source = 'warm' and excluded.source = 'warm')""",
             (project, key, version, Jsonb(payload), source))
 
-    def cache_clear(self, project: str | None = None) -> int:
-        cur = self.conn.execute("delete from rag_answer_cache where %s::text is null or project=%s", (project, project))
+    def cache_judge(self, project: str, key: str, verdict: str) -> int:
+        cur = self.conn.execute("update rag_answer_cache set source=%s where project=%s and cache_key=%s",
+                                (verdict, project, key))
+        return cur.rowcount
+
+    def cache_clear(self, project: str | None = None, keep_judged: bool = True) -> int:
+        """저장된 답 삭제. 기본은 사람이 판정한 답(approved·rejected)을 남긴다."""
+        cur = self.conn.execute(
+            "delete from rag_answer_cache where (%s::text is null or project=%s) and (not %s or source not in ('approved','rejected'))",
+            (project, project, keep_judged))
         return cur.rowcount
 
     def first_chunk(self, document_id: int) -> dict | None:

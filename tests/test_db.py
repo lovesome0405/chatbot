@@ -399,3 +399,35 @@ def test_generation_budget_is_split_across_parts(engine):
     res = engine.chat("maru", "이 코스 장소 순서 알려주고 그리고 입장료는 얼마야?", "ko", {"course_id": "palace-history-course"},
                       ref("2026-11-17T12:00"))
     assert res.route == "composite" and seen and all(b == 4 for b in seen)   # 문서 부분 2개 → 8초를 반씩
+
+
+def test_warm_answers_need_human_approval(engine):
+    """밤 작업으로 만든 답은 사람이 '맞음'으로 판정해야 내보낸다. '틀림'은 내보내지도, 실시간 답으로 덮어쓰지도 않는다."""
+    from ragcore.engine import cache_key
+
+    st = engine.store
+    st.cache_clear(keep_judged=False)
+    engine.settings.answer_cache = True
+    q, ctx = "인사동에서 전통공예를 볼 수 있어?", {}
+    key = cache_key("maru", q, "ko", engine.adapters["maru"].validate_context(ctx))
+    ver = st.data_version("maru")
+    engine.chat("maru", q, "ko", ctx, cache_source="warm")
+    assert st.cache_exists("maru", key, ver) == "warm"
+    assert not engine.chat("maru", q, "ko", ctx).debug.get("cache_hit")            # 검토 전: 내보내지 않음
+    assert st.cache_exists("maru", key, ver) == "warm"                             # 실시간 답이 검토 대기 답을 덮지 않음
+    st.cache_judge("maru", key, "approved")
+    hit = engine.chat("maru", q, "ko", ctx)
+    assert hit.debug.get("cache_hit") and hit.debug["latency_ms"] < 200             # 승인 후: DB 조회만
+    st.cache_judge("maru", key, "rejected")
+    assert not engine.chat("maru", q, "ko", ctx).debug.get("cache_hit")
+    assert st.cache_exists("maru", key, ver) == "rejected"
+    assert st.cache_clear() == 0 and st.cache_exists("maru", key, ver) == "rejected"   # 판정은 --refresh 로도 안 지움
+    st.cache_clear(keep_judged=False)
+
+
+def test_scholarship_row_respects_numeric_condition(engine):
+    """E2E에서 발견: '2.5 이상'처럼 질문의 숫자 조건이 든 행(비고 열 포함)만 고른다. 없으면 정형 답을 만들지 않는다."""
+    r = engine.chat("lolypoly", "직전학기 성적 기준이 2.5 이상인 장학금은 뭐야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert r.route == "structured" and r.answer.startswith("복지 장학금")
+    none = engine.chat("lolypoly", "직전학기 성적 기준이 4.0 이상인 장학금은 뭐야?", "ko", {}, ref("2026-11-17T12:00"))
+    assert none.route == "document"

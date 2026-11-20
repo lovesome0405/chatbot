@@ -1,4 +1,4 @@
-# v0.4.0 두 앱 연동·배포 인계
+# 두 앱 연동·배포 인계 (v0.4.0 작성, v0.5.0 갱신)
 
 같은 엔진 하나를 **롤리폴리(학생, Django)** 와 **MARU 아리(외국인 방문객, 정적 웹)** 가 각자 원래 화면에서 쓴다.
 상태 표기: 로컬 실연동 = 이 문서의 E2E로 확인 / 스테이징·운영 = **미실행**(아래 4절).
@@ -20,7 +20,7 @@
 ```bash
 # 엔진
 docker compose up -d db && .venv/bin/python scripts/fetch_e5.py
-docker run -d --name ollama --network host -v ollama:/root/.ollama ollama/ollama && docker exec ollama ollama pull qwen2.5:3b
+docker run -d --name ollama --network host -v ollama:/root/.ollama ollama/ollama && docker exec ollama ollama pull qwen2.5:1.5b
 export PYTHONPATH=src:.; .venv/bin/python -m ragcore.cli ingest
 RAG_PUBLIC_ORIGINS=http://127.0.0.1:8765 .venv/bin/uvicorn ragcore.api:app --host 127.0.0.1 --port 8088
 # 평가 전용(과거 공지 기간 재현). 일반 서버에는 두지 않는다
@@ -33,7 +33,7 @@ LOLYPOLY_RAG_API_URL=http://127.0.0.1:8088 LOLYPOLY_RAG_APP_KEY=<RAG_APP_KEYS의
 python3 -m http.server 8765 --bind 127.0.0.1
 
 # 화면 E2E(실제 경로 + 장애 모의)
-node e2e/apps.e2e.cjs           # → reports/v0.4.0/e2e/results.json, *.png
+node e2e/apps.e2e.cjs           # → reports/v0.5.0/e2e/results.json, *.png
 node e2e/ari_config.test.cjs <ari>/app.js
 ```
 
@@ -53,7 +53,7 @@ RAG_LOLYPOLY_EXPORT=/data/lolypoly-rag-export.json python -m ragcore.cli ingest 
 
 | 항목 | 내용 |
 |---|---|
-| 엔진 실행 위치 | **미정.** 생성에 Ollama(약 2.4GB RAM, CPU 4코어에서 1회 수~수십 초)가 필요하다. 후보: 학교 PC(롤리폴리와 같은 기계, Cloudflare Tunnel 재사용), 별도 VM, 학교 GPU. Render 무료는 메모리·슬립 때문에 부적합(측정 안 함). 다른 컴퓨터나 클라우드 세션이 사용자의 PC·Ollama에 자동 연결된다고 가정하지 않는다 |
+| 엔진 실행 위치 | **결정(2026-11-20): 롤리폴리가 도는 학교 PC**. Docker·WSL을 못 쓰는 PC라 Miniforge(PostgreSQL+pgvector)·Ollama 사용자 설치·작업 스케줄러로 구성 → `deploy/windows/README.md`(Windows 미검증). 롤리폴리는 같은 기계라 `http://127.0.0.1:8088`로 부르고, MARU용 공개 주소만 터널에 경로 추가가 필요 |
 | 두 앱이 닿을 HTTPS 주소 | 미정. 예: `https://rag.<도메인>` (Cloudflare Tunnel). 롤리폴리는 서버→엔진, MARU는 **방문객 브라우저→엔진**이라 공개 주소가 필요 |
 | 엔진 환경변수 | `DATABASE_URL`, `RAG_EMBEDDER=e5-onnx`, `RAG_GENERATOR=ollama`, `OLLAMA_URL`, `OLLAMA_MODEL`, `RAG_APP_KEYS`(lolypoly 키), `RAG_PUBLIC_PROJECT=maru`, `RAG_PUBLIC_ORIGINS`(MARU 사이트 Origin, 쉼표 구분), `RAG_PUBLIC_RATE_PER_MIN`(기본 20), `RAG_TRUST_PROXY_HOPS`(프록시 뒤면 1), `RAG_LOLYPOLY_EXPORT`. 운영에서 `RAG_ALLOW_REFERENCE_TIME`·`RAG_FIXED_NOW`는 두지 않는다 |
 | 롤리폴리 환경변수 | `LOLYPOLY_RAG_API_URL`(https), `LOLYPOLY_RAG_APP_KEY`, 선택 `LOLYPOLY_RAG_TIMEOUT_SEC`, `LOLYPOLY_RAG_LIMIT_PER_10MIN` |

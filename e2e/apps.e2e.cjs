@@ -5,12 +5,12 @@
 //   엔진 8088(일반, 기준 시각 덮어쓰기 거부) · 8089(평가 전용, RAG_FIXED_NOW=2026-09-15T12:00) · 8090(평가 전용, 2026-11-01T12:00)
 //   LOLYPOLY  http://127.0.0.1:8000  (LOLYPOLY_RAG_API_URL=http://127.0.0.1:8088, LOLYPOLY_RAG_APP_KEY=<lolypoly 키>)
 //   MARU(ari) http://127.0.0.1:8765  (정적 서버. rag-config.json 은 이 스크립트가 가로채 endpoint 를 넣는다)
-// 실행: node e2e/apps.e2e.cjs [--only lolypoly|maru]   결과: reports/v0.4.0/e2e/results.json + 화면 캡처
+// 실행: node e2e/apps.e2e.cjs [--only lolypoly|maru]   결과: reports/v0.5.0/e2e/results.json + 화면 캡처
 const { chromium, devices } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
-const OUT = path.join(__dirname, '..', 'reports', 'v0.4.0', 'e2e');
+const OUT = path.join(__dirname, '..', 'reports', 'v0.5.0', 'e2e');
 const LOLY = process.env.LOLY_URL || 'http://127.0.0.1:8000';
 const MARU = process.env.MARU_URL || 'http://127.0.0.1:8765';
 const ENGINE = process.env.ENGINE_URL || 'http://127.0.0.1:8088';
@@ -88,11 +88,16 @@ async function lolypoly(browser) {
   }
 
   // 4) 실제 생성 경로(문서 질문)
-  const gen = await ask('학과수석 입학자 장학금 혜택이 뭐야?');
-  record('lolypoly', '문서 질문 실제 임베딩·생성(qwen2.5:3b)', gen.cls.includes('is-answered') && gen.text.includes('[1]'),
-    { answer: gen.text, ms: gen.ms });
+  // v0.5.0: 장학 '행' 질문은 정형 답(모델 0회)이므로, 행을 고를 수 없는 문서 질문으로 실제 임베딩·생성 경로를 확인
+  const cond = await ask('직전학기 성적 기준이 2.5 이상인 장학금은 뭐야?');
+  record('lolypoly', '장학표 숫자 조건(2.5 이상) → 복지 장학금 행', cond.text.includes('복지 장학금') && cond.text.includes('2.5'),
+    { answer: cond.text, ms: cond.ms });
+  const gen = await ask('장학금 받으려면 성적이 몇 점 이상이어야 해?');
+  record('lolypoly', '문서 질문 실제 임베딩·생성 경로(qwen2.5:1.5b, 8초 상한)', gen.cls.match(/is-(answered|insufficient_evidence)/)
+    && gen.text.includes('[1]') && gen.ms < 10000, { answer: gen.text, ms: gen.ms });
 
   // 5) 되묻기 → 같은 입력칸으로 답
+  await page.click('[data-assistant-clear]');   // 화면 기록 상한 12개 — 앞 질문이 많아 먼저 비움
   const clar = await ask('11월 10일 메뉴 뭐야?');
   const clarOk = clar.cls.includes('is-clarification_needed');
   const followed = clarOk ? await ask('점심') : null;
@@ -136,6 +141,8 @@ async function lolypoly(browser) {
   }
 
   record('lolypoly', '모바일(iPhone 13) 가로 넘침 없음', await noHorizontalScroll(page));
+  const slow = results.filter((r) => r.app === 'lolypoly' && typeof r.ms === 'number' && r.ms >= 10000);
+  record('lolypoly', '실제 경로 답변 모두 10초 이내(v0.5.0)', slow.length === 0, { slow: slow.map((r) => [r.name, r.ms]) });
   await box.scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(OUT, 'lolypoly-assistant-mobile.png'), fullPage: true });
   await ctx.close();
@@ -210,15 +217,18 @@ async function maru(browser) {
     && Array.isArray(r3.body.context.ranked_route_ids) && r3.body.context.ranked_route_ids.length > 0,
     { answer: r3.text, context: r3.body.context, ms: r3.ms });
 
-  // 중복 전송 방지(엔터 연타 + 빠른 질문)
+  // 중복 전송 방지(엔터 연타 + 빠른 질문). v0.5.0은 정형 답이 수 ms라, 보내는 중 상태를 만들려고 응답을 2초 늦춘다(모의)
+  await page.route('**/v1/public/chat', async (route) => { await new Promise((r) => setTimeout(r, 2000)); await route.continue(); });
   const n0 = sent.length;
   await page.fill('[data-ari-input]', 'Tell me about Jongmyo Shrine');
   await page.press('[data-ari-input]', 'Enter');
   await page.press('[data-ari-input]', 'Enter').catch(() => {});
   await page.click('[data-ari-quick] >> nth=0', { timeout: 1500 }).catch(() => {});
+  const busySeen = await page.evaluate(() => document.querySelector('[data-ari-panel]').getAttribute('aria-busy') === 'true');
   await page.waitForFunction(() => document.querySelector('[data-ari-panel]').getAttribute('aria-busy') === 'false', null, { timeout: 90000 });
   const jm = await msgs.last().innerText();
-  record('maru', '전송 중 중복 전송 방지', sent.length - n0 === 1, { requests: sent.length - n0, answer: jm });
+  await page.unroute('**/v1/public/chat');
+  record('maru', '[모의 2초 지연] 전송 중 중복 전송 방지', busySeen && sent.length - n0 === 1, { requests: sent.length - n0, busySeen, answer: jm });
   record('maru', 'M14 화면 확인: 종묘 답에 잘못된 구 이름 없음', !/Jungmu/i.test(jm), { answer: jm });
 
   // 페이지 전환 → 장소 상태 초기화
@@ -310,6 +320,22 @@ async function maru(browser) {
   await p3.close();
 
   record('maru', '모바일(Pixel 7) 가로 넘침 없음', await noHorizontalScroll(page));
+  // v0.5.0 미리 만든 답: 아리 빠른 질문 버튼은 밤 작업(warm)으로 저장된 답을 바로 돌려준다
+  endpoint = `${ENGINE}/v1/public/chat`;
+  const p4 = await ctx.newPage();
+  await p4.goto(`${MARU}/index.html`);
+  await p4.click('[data-ari-open]');
+  const k4 = await lastAt(p4);
+  const t4 = Date.now();
+  await p4.click('[data-ari-quick] >> nth=0');
+  await waitReply(p4, k4);
+  const quick = { ms: Date.now() - t4, text: await p4.locator('[data-ari-messages] .ari-message').last().innerText() };
+  // 밤 작업으로 만든 답은 사람이 '맞음'으로 승인해야 내보낸다(RAG_CACHE_REQUIRE_REVIEW). 승인 전에는 실시간 경로(10초 이내)
+  record('maru', '빠른 질문 버튼 → 10초 이내(미리 만든 답은 검토 승인 전이라 실시간 경로)', quick.ms < 10000
+    && !quick.text.includes('Local guide'), quick);
+  await p4.close();
+  const slowM = results.filter((r) => r.app === 'maru' && typeof r.ms === 'number' && r.ms >= 10000);
+  record('maru', '실제 경로 답변 모두 10초 이내(v0.5.0)', slowM.length === 0, { slow: slowM.map((r) => [r.name, r.ms]) });
   await ctx.close();
 }
 

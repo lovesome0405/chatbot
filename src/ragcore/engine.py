@@ -81,7 +81,7 @@ class Engine:
         key = version = None
         if use_cache:
             key, version = cache_key(project, question, lang, ctx), self.store.data_version(project)
-            hit = self.store.cache_get(project, key, version)
+            hit = self.store.cache_get(project, key, version, self.settings.cache_require_review)
             if hit:
                 res = ChatResult(hit["status"], hit["route"], hit["answer"], [Citation(**c) for c in hit["citations"]],
                                  now.isoformat(), request_id,
@@ -112,8 +112,10 @@ class Engine:
         debug["embedder"] = self.embedder.name
         result.debug = debug
         if use_cache and key and cacheable(result, parts):
-            self.store.cache_put(project, key, version, {k: v for k, v in result.public_dict().items()
-                                                          if k not in ("as_of", "request_id")}, cache_source)
+            payload = {k: v for k, v in result.public_dict().items() if k not in ("as_of", "request_id")}
+            # 사람 검토용(응답에는 나가지 않음): 원래 질문·언어·화면 상태
+            payload["_review"] = {"question": question, "language": lang, "context": ctx, "ask_as": ask_as}
+            self.store.cache_put(project, key, version, payload, cache_source)
         log.info(json.dumps({
             "request_id": request_id, "project": project, "route": result.route, "status": result.status,
             "latency_ms": debug["latency_ms"], "model": self.generator.name, "model_calls": debug["model_calls"],

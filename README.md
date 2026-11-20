@@ -74,8 +74,8 @@ export PYTHONPATH=src:.
 | `examples/ari_maru/ari-rag-bridge.js` | node에서 Ari `buildAriContext()` 모양의 객체로 호출. `ranking.topRoutes` 순서가 응답 인용 순서에 그대로 유지됨 | ari `app.js`는 수정하지 않았다. 장애 시 `fallbackAriReply`는 "로컬 안내(근거 검색 답변 아님)" 표시를 붙여 쓰도록 안내만 했다 |
 | `examples/maru-static/index.html` | Playwright로 390px 화면에서 실제 호출·렌더링, 가로 넘침 없음 (`reports/maru-static-demo.png`) | 공개 중계 엔드포인트만 쓴다. 공개 배포 시 HTTPS·도메인·남용 방지 정책이 따로 필요하다 |
 
-## 테스트 (2026-11-19 v0.4.0 실행)
-`pytest -q` → **54 passed** (v0.4.0: 단위 26 + 실제 PostgreSQL/pgvector 통합 28, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트를 돌린다. 앱 화면 E2E는 `e2e/apps.e2e.cjs`(실제 서버 필요, CI 밖).
+## 테스트 (2026-11-20 v0.5.0 실행)
+`pytest -q` → **67 passed** (v0.5.0: 단위 33 + 실제 PostgreSQL/pgvector 통합 34, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트를 돌린다. 앱 화면 E2E는 `e2e/apps.e2e.cjs`(실제 서버 필요, CI 밖).
 판정 가능한 필수 조건은 모두 자동 테스트로 확인했다:
 
 | 필수 조건 | 테스트 |

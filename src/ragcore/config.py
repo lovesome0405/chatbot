@@ -54,6 +54,8 @@ class Settings:
     ollama_keep_alive: str = field(default_factory=lambda: _env("OLLAMA_KEEP_ALIVE", "30m"))     # 모델을 메모리에 상주
     quote_style: str = field(default_factory=lambda: _env("RAG_QUOTE_STYLE", "short"))        # full | short(v0.5.0)
     answer_cache: bool = field(default_factory=lambda: _env_bool("RAG_ANSWER_CACHE", True))
+    # 밤 작업(warm)으로 만든 답은 사람이 '맞음'으로 판정한 것만 내보낸다(기본). 0이면 검토 없이 내보냄
+    cache_require_review: bool = field(default_factory=lambda: _env_bool("RAG_CACHE_REQUIRE_REVIEW", True))
     # 검색 시작값
     keyword_top_n: int = field(default_factory=lambda: _env_int("RAG_KEYWORD_TOP_N", 10))
     vector_top_n: int = field(default_factory=lambda: _env_int("RAG_VECTOR_TOP_N", 10))

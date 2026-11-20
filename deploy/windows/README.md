@@ -56,6 +56,14 @@ RAG_LOLYPOLY_EXPORT=D:\lolypoly\rag\lolypoly-export.json
 | `RAG-API` | 부팅 시(죽으면 1분 뒤 재시작) | `uvicorn ragcore.api:app --host 127.0.0.1 --port 8088` |
 | `RAG-Refresh` | 매일 07:10 (롤리폴리 수집 06:10~06:40 뒤) | 롤리폴리 `export_rag` → 엔진 `ingest` → `warm`(자주 묻는 질문 답 미리 만들기) |
 
+미리 만든 답은 **사람이 '맞음'으로 판정한 것만** 화면에 나간다. 자료가 바뀐 날은 새 답이 판정 대기로 쌓이므로, 필요할 때:
+```bat
+python -m ragcore.cli cache-export --out D:\lolypoly\rag\warm-review.csv
+rem 엑셀로 열어 '사람 판정' 열에 맞음/틀림 입력 후 저장
+python -m ragcore.cli cache-import --csv D:\lolypoly\rag\warm-review.csv
+```
+검토하지 않아도 동작은 한다(실시간 경로로 10초 이내 답).
+
 Ollama는 설치 시 사용자 로그인 때 자동 실행된다. 로그인 없이 부팅만 된 상태에서도 돌려야 하면 `ollama serve`를 작업으로 등록해야 한다(미검증).
 
 ## 5. 확인

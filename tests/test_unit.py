@@ -394,3 +394,10 @@ def test_question_topic_word_must_be_in_cited_source():
     lib = [_ev("E1", "재학생은 한 번에 5권까지 14일 동안 대출할 수 있다.")]
     assert verify([{"text": "도서는 5권까지 빌릴 수 있습니다.", "citations": [{"id": "E1", "quote": "5권까지 14일 동안 대출할 수 있다"}]}],
                   lib, question="도서는 몇 권까지 빌릴 수 있어?", lang="ko").claims      # '빌릴 수'는 동사라 비교 안 함
+
+
+def test_english_now_is_time_sensitive_but_know_is_not():
+    from ragcore.adapter import is_time_sensitive
+
+    assert is_time_sensitive("Can I go up to the Geunjeongjeon terrace now?")
+    assert not is_time_sensitive("I want to know about Jongmyo")
