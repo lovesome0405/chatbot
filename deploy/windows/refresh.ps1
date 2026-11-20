@@ -17,6 +17,7 @@ function Step($name, [scriptblock]$body) {
 $c1 = Step 'export_rag' { Push-Location $LolypolyApp; & (Join-Path $LolypolyApp '.venv\Scripts\python.exe') manage.py export_rag --out $export; Pop-Location }
 if ($c1 -ne 0) { exit $c1 }
 # 2) 엔진 적재(멱등) → 3) 미리 만든 답(자료가 바뀐 프로젝트만 다시 만들어짐)
+. (Join-Path $app 'deploy\windows\env.ps1') $app
 Set-Location $app; $env:PYTHONPATH = "$app\src;$app"; $env:RAG_LOLYPOLY_EXPORT = $export
 $c2 = Step 'ingest' { & $py -m ragcore.cli ingest }
 if ($c2 -ne 0) { exit $c2 }

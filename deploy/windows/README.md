@@ -2,6 +2,7 @@
 
 대상: 롤리폴리가 돌고 있는 강의실 PC(Windows 11, i7-10700, RAM 15.9GB, GPU 미확인).
 제약(LOLYPOLY `docs/PROGRESS.md` 2026-11-04): BIOS 가상화 꺼짐 → **Docker·WSL 불가**.
+학교 PC에서 Claude 세션으로 설치하려면 `CLAUDE_SESSION_PROMPT.md`의 요청을 붙여 넣는다.
 상태: **이 문서와 스크립트는 Windows에서 실행해 보지 않았다(미검증).** 클라우드 Linux에서 같은 구성 요소(PostgreSQL+pgvector, Ollama, e5, uvicorn)로만 확인했다.
 
 ## 구성
@@ -42,12 +43,14 @@ RAG_EMBEDDER=e5-onnx
 RAG_GENERATOR=ollama
 OLLAMA_MODEL=qwen2.5:1.5b
 RAG_GEN_BUDGET_S=8
-RAG_APP_KEYS=lolypoly:<긴 무작위 값>          # 롤리폴리 LOLYPOLY_RAG_APP_KEY 와 같은 값. 예시에 실제 값 쓰지 않기
+# 롤리폴리 LOLYPOLY_RAG_APP_KEY 와 같은 값. 예시·채팅에 실제 값 쓰지 않기(줄 끝 주석은 지원하지 않음)
+RAG_APP_KEYS=lolypoly:<긴 무작위 값>
 RAG_PUBLIC_PROJECT=maru
 RAG_PUBLIC_ORIGINS=<MARU 사이트 Origin>
 RAG_LOLYPOLY_EXPORT=D:\lolypoly\rag\lolypoly-export.json
 ```
 패키지·모델: `D:\lolypoly\rag\env\python -m pip install -r requirements.lock` → `python scripts\fetch_e5.py`.
+엔진은 `.env`를 스스로 읽지 않는다. 작업 스케줄러 스크립트는 `env.ps1`로 읽고, 손으로 명령을 칠 때는 PowerShell에서 먼저 `. .\deploy\windows\env.ps1 (Get-Location)` 을 실행한다.
 
 ## 4. 작업 등록 — `install_tasks.ps1`
 | 작업 | 언제 | 하는 일 |

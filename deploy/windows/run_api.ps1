@@ -3,6 +3,7 @@ param([string]$Root = 'D:\lolypoly\rag')
 $ErrorActionPreference = 'Stop'
 $app = Join-Path $Root 'chatbot'
 Set-Location $app
+. (Join-Path $app 'deploy\windows\env.ps1') $app
 [Console]::OutputEncoding = [Text.Encoding]::UTF8; $env:PYTHONUTF8 = '1'; $env:TZ = 'Asia/Seoul'
 $env:PYTHONPATH = "$app\src;$app"
 $log = Join-Path $Root 'logs\api.log'
