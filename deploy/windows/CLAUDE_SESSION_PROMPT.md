@@ -7,6 +7,9 @@
 2. Claude 데스크톱 앱(또는 Claude Code)에 로그인한다.
 3. 작업 폴더를 **`D:\lolypoly`** 로 연다(롤리폴리가 `D:\lolypoly\app`에 설치된 기준. 위치가 다르면 요청 안의 경로를 바꾼다).
 4. GitHub 로그인이 필요할 수 있다(`lovesome0405/chatbot`이 비공개면 git이 브라우저 로그인을 띄운다).
+   자격 증명 관리자에 GitHub 계정이 여러 개면 `https://lovesome0405@github.com/lovesome0405/chatbot` 로 clone 한다(README 7절 ①).
+5. **관리자 PowerShell이 필요한 단계가 두 개 있다**(2026-11-20 확인): 엔진 작업 등록(`install_tasks.ps1`)과 롤리폴리 업데이트(`update.ps1 -Branch main`, 학교 PC가 3fd5417 이전이면).
+   Claude가 물으면 사람이 직접 실행하거나 UAC 창을 승인한다.
 
 ## 붙여 넣을 요청
 
