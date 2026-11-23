@@ -63,3 +63,16 @@ def extract(question: str, lang: str, evidences: list[Evidence], aliases: dict[s
         if len(out) == limit:
             break
     return out
+
+
+def coverage(question: str, evidences: list[Evidence], aliases: dict[str, list[str]], top: int = 8) -> float:
+    """v0.6.0 질문 핵심어가 상위 근거 한 개에 들어 있는 최대 비율. 높으면 앱 자료가 다루는 주제(도메인)로 본다."""
+    core = _core_terms(question)
+    if not core:
+        return 0.0
+    best = 0.0
+    for ev in evidences[:top]:
+        toks = set(textnorm.tokens(ev.text))
+        hit = sum(1 for c in core if c in toks or any(v in toks for v in textnorm.expand_query(c, aliases) if v != c))
+        best = max(best, hit / len(core))
+    return round(best, 2)

@@ -22,6 +22,10 @@ from ragcore.adapter import DETAIL_TERMS, Adapter, Claim, Part, PartResult, Sync
 from ragcore.chunking import table_row_chunks
 from ragcore.engine import citation_from
 from ragcore.html_table import parse_tables
+
+from ragcore.general import GeneralPolicy
+
+from . import en_gloss as G
 from ragcore.models import Chunk, Citation, Document
 from ragcore.timeutil import SEOUL, fmt_day, resolve_date, resolve_range, seoul_now
 
@@ -53,7 +57,7 @@ TIME_TERMS = ["마감", "운영시간", "운영 시간", "식사시간", "식사
 
 class LolypolyAdapter(Adapter):
     project = PROJECT
-    allowed_collections = {"meals", "meal_hours", "events", "notices", "scholarship"}
+    allowed_collections = {"meals", "meal_hours", "events", "notices", "scholarship", "school_info"}
     structured_keys = {"meals": {"date", "meal_type"}}
     fresh_days = 30
     persona = ("You are the campus guide of 롤리폴리, a student app for 한국폴리텍대학 춘천캠퍼스. "
@@ -84,6 +88,17 @@ class LolypolyAdapter(Adapter):
         self.dir = Path(data_dir)
         env = os.environ.get("RAG_LOLYPOLY_EXPORT", "").strip()
         self.export_path = Path(export_path or env or self.dir / "export.json")
+        info = os.environ.get("RAG_LOLYPOLY_SCHOOL_INFO", "").strip()
+        self.school_info_path = Path(info) if info else self.dir / "school_info.json"
+        self.general_policy = lolypoly_general_policy(self._school_names())
+
+    def _school_names(self) -> list[str]:
+        """학교 정보 카드(검수 여부와 무관)의 학과 이름 — 일반 답변에 학교 고유명사가 나오면 버리기 위해."""
+        try:
+            card = json.loads(self.school_info_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        return [d for it in card.get("items", []) for d in it.get("names", [])]
 
     # ── 적재 ───────────────────────────────
     def load(self) -> SyncBatch:
@@ -146,10 +161,41 @@ class LolypolyAdapter(Adapter):
                 chunks=[Chunk("title", "공지 제목(본문 미수집)", n["title"])],
             ))
         docs.append(self._scholarship())
+        docs += self._school_info_docs()
         cols = {c: ("complete" if status.get(c, "success") == "success" and c in exp else "failed") for c in EXPORT_COLLECTIONS}
-        cols["meal_hours"] = "complete" if exp.get("meal_hours") else "failed"
+        # v0.6.0: 롤리폴리 export_rag 가 식사시간표를 내보낸다(LOLYPOLY ERR-015). 식단 수집 실패나 빈 목록이면 삭제를 반영하지 않음
+        hours_ok = status.get("meal_hours", status.get("meals", "success")) == "success"
+        cols["meal_hours"] = "complete" if exp.get("meal_hours") and hours_ok else "failed"
         cols["scholarship"] = "complete"
+        cols["school_info"] = "complete"     # 검수 전이면 문서 0개 → 이전에 적재된 카드도 지워진다(검수 철회 반영)
         return SyncBatch(docs, cols)
+
+    # ── v0.6.0 학교 기본 정보 카드 ─────────────────
+    def _card(self) -> dict | None:
+        """scripts/fetch_school_info.py 가 만든 카드. 사람이 needs_review=false 로 바꾼 것만 쓴다(원문 수집 도구 규칙)."""
+        try:
+            card = json.loads(self.school_info_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return None if card.get("needs_review", True) else card
+
+    def _school_info_docs(self) -> list[Document]:
+        card = self._card()
+        if not card:
+            return []
+        checked = _dt(card.get("reviewed_at") or None) or datetime.now(timezone.utc)
+        out = []
+        for it in card["items"]:
+            if not it.get("text"):
+                continue                        # 확인하지 못한 항목은 적재하지 않는다(답할 때 '미확인'으로 안내)
+            out.append(Document(
+                project=PROJECT, source_id=f"school-info:{it['key']}", collection="school_info",
+                title=f"{card['campus']} 기본 정보: {it['label']}", body=it["text"], url=it["url"], language="ko",
+                content_level="body", source_type="public_original", checked_at=checked,
+                metadata={"key": it["key"], "snapshot": f"공식 홈페이지 확인 {card['checked_at']} · 사람 검수 {card.get('reviewed_at', '?')}"},
+                chunks=[Chunk("card", f"학교 기본 정보 > {it['label']}", it["text"], {"key": it["key"]})],
+            ))
+        return out
 
     def _scholarship(self) -> Document:
         html = (self.dir / "kopo_scholarship_4799.html").read_text(encoding="utf-8")
@@ -195,6 +241,10 @@ class LolypolyAdapter(Adapter):
                 return Part("structured", text, "scholarship_term", params={"target": target, "semester": sem})
             # v0.5.0: 질문이 장학표의 한 행(종류·수혜자격·지급액)을 가리키면 그 행으로 답한다. 못 고르면 문서 검색
             return Part("structured", text, "scholarship_row", needs_detail=has_any(low, DETAIL_TERMS))
+        key = _card_key(low)
+        if key:
+            # v0.6.0 학교 기본 정보 카드(주소·연락처·학과·건물·이메일). 검수된 카드가 없으면 None → 문서 검색 → 보류
+            return Part("structured", text, "school_info", params={"key": key}, collections=["school_info"])
         if has_any(low, WHEN_TERMS) and not has_any(low, ["공지", "notice"]):
             # v0.5.0: '○○ 언제야?' — 학사일정 제목과 맞는 행을 날짜와 함께 답한다. 못 고르면 문서 검색
             return Part("structured", text, "event_name")
@@ -219,7 +269,34 @@ class LolypolyAdapter(Adapter):
             return self._event_name(part, store, now, lang)
         if part.intent == "meal_hours":
             return self._meal_hours(part, store, now, lang)
+        if part.intent == "school_info":
+            return self._school_info(part, store, lang)
         raise NotImplementedError(part.intent)
+
+    def _school_info(self, part: Part, store, lang: str) -> PartResult | None:
+        card = self._card()
+        rows = store.chunks(PROJECT, "school_info")
+        if not card or not rows:
+            return None
+        key = part.params["key"]
+        keys = ["departments", "departments_location_page"] if key == "departments" else (
+            ["phone", "admission_phone"] if key == "phone" else [key])
+        hit = [r for r in rows if (r["metadata"] or {}).get("key") in keys]
+        hit.sort(key=lambda r: keys.index(r["metadata"]["key"]))
+        item = next((it for it in card["items"] if it["key"] == key), None)
+        if not hit:
+            label = item["label"] if item else key
+            why = (item or {}).get("missing_reason", "")
+            m = (f"학교 기본 정보 카드의 ‘{label}’은(는) 공식 홈페이지에서 아직 확인하지 못한 항목이라 답할 수 없어요. ({why})" if lang == "ko"
+                 else f"‘{label}’ is not confirmed on the official website yet, so I can't answer it.")
+            return PartResult("insufficient_evidence", message=m, debug={"school_info": key, "missing": True})
+        claims = []
+        for r in hit:
+            lab = r["locator"].split(" > ", 1)[-1]
+            txt = (f"{lab}: 공식 홈페이지에는 “{r['text']}”라고 나와 있어요." if lang == "ko"
+                   else f"{CARD_LABEL_EN.get((r['metadata'] or {}).get('key'), lab)} — the official website says: “{r['text']}”.")
+            claims.append(Claim(txt, [citation_from(r, r["text"], "학교 기본 정보 카드(공식 원문, 사람 검수)")]))
+        return PartResult("answered", claims=claims, debug={"school_info": key, "rows": len(hit)})
 
     def _scholarship_row(self, part: Part, store, lang: str) -> PartResult | None:
         """장학표에서 질문과 가장 많이 겹치는 행(종류·수혜자격·지급액, 별칭 확장)을 고른다.
@@ -257,7 +334,9 @@ class LolypolyAdapter(Adapter):
                 txt = f"{head}{c['종류']}(‘{c['수혜자격']}’)는 {body}." + (f" 비고: {note}." if note else "")
             else:
                 head = "Yes. " if yes and not claims else ""
-                txt = (f"{head}{c['종류']} — eligibility: ‘{c['수혜자격']}’; benefit: {amount}" + (f"; note: {note}." if note else "."))
+                txt = (f"{head}{G.gloss(c['종류'], G.SCHOLARSHIP_KIND)} — eligibility: {G.gloss_pattern(c['수혜자격'], ())}"
+                       f"{_en_paren(c['수혜자격'], G.ELIGIBILITY)}; benefit: {G.gloss_pattern(amount, G.AMOUNT_PATTERNS)}"
+                       + (f"; note: {G.gloss_pattern(note, G.NOTE_PATTERNS)}." if note else "."))
             claims.append(Claim(txt, [citation_from(r, r["text"], "표 행(서버 조회)")]))
         return PartResult("answered", claims=claims, debug={"rows": [r["locator"] for r in top], "score": best})
 
@@ -288,7 +367,9 @@ class LolypolyAdapter(Adapter):
             period = md["start_date"] if md["start_date"] == md["end_date"] else f"{md['start_date']}~{md['end_date']}"
             past = md["end_date"] < today.isoformat()
             mark = (" (지난 일정)" if lang == "ko" else " (past)") if past else ""
-            claims.append(Claim(f"- {md['event_title']} ({md['course'] or '-'}): {period}{mark}",
+            line = (f"- {md['event_title']} ({md['course'] or '-'}): {period}{mark}" if lang == "ko" else
+                    f"- {G.gloss(md['event_title'], G.EVENT)} — {G.gloss(md['course'] or '-', G.COURSE)}: {period}{mark}")
+            claims.append(Claim(line,
                                 [citation_from(r | {"locator": f"학사일정 > {md['event_title']}"},
                                                f"학사일정 {md['event_title']} | 과정: {md['course'] or '-'} | 기간: {period.replace('~', ' ~ ')}")]))
         return PartResult("answered", claims=claims, debug={"matched": len(top), "score": best})
@@ -347,8 +428,10 @@ class LolypolyAdapter(Adapter):
                        f"비고: “{c['비고']}”.")
             else:
                 head = "Yes" if ok else "No"
-                txt = (f"{head}. For the {c['종류']} row ‘{c['수혜자격']}’, the table says {target} (new students) are eligible "
-                       f"from semester {start} ({c['지급액 및 기간']}; note: {c['비고']}).")
+                txt = (f"{head}. For the {G.gloss(c['종류'], G.SCHOLARSHIP_KIND)} row ‘{c['수혜자격']}’"
+                       f"{_en_paren(c['수혜자격'], G.ELIGIBILITY)}, the table says {target} (new students) are eligible "
+                       f"from semester {start} (benefit: {G.gloss_pattern(c['지급액 및 기간'], G.AMOUNT_PATTERNS)}; "
+                       f"note: {G.gloss_pattern(c['비고'], G.NOTE_PATTERNS)}).")
             claims.append(Claim(txt, [citation_from(ev, r["text"], "표 행 규칙(서버 판정)")]))
         # 같은 장학 종류에서 대상(예: 입학자)에 해당하는 다른 행은 학기 규칙 없이 그대로 덧붙인다(행을 섞지 않음)
         used = {r["chunk_id"] for r, _, _ in rule_rows}
@@ -360,7 +443,8 @@ class LolypolyAdapter(Adapter):
             if any(h in c.get("수혜자격", "") for h in TARGET_ROW_HINTS.get(target, [])):
                 txt = (f"같은 {c['종류']}의 ‘{c['수혜자격']}’ 행은 {copula(c['지급액 및 기간'])}(비고: {c['비고'] or '없음'})."
                        if lang == "ko" else
-                       f"The separate {c['종류']} row ‘{c['수혜자격']}’ gives {c['지급액 및 기간']} (note: {c['비고'] or '-'}).")
+                       f"The separate {G.gloss(c['종류'], G.SCHOLARSHIP_KIND)} row ‘{c['수혜자격']}’{_en_paren(c['수혜자격'], G.ELIGIBILITY)} "
+                       f"gives {G.gloss_pattern(c['지급액 및 기간'], G.AMOUNT_PATTERNS)} (note: {G.gloss_pattern(c['비고'], G.NOTE_PATTERNS) if c['비고'] else '-'}).")
                 claims.append(Claim(txt, [citation_from(r, r["text"], "같은 표의 다른 행")]))
         return PartResult("answered", claims=claims, debug={"rule_rows": [r["locator"] for r, _, _ in rule_rows], "semester": sem})
 
@@ -413,7 +497,8 @@ class LolypolyAdapter(Adapter):
         for r in rows[:12]:
             md = r["metadata"]
             period = md["start_date"] if md["start_date"] == md["end_date"] else f"{md['start_date']}~{md['end_date']}"
-            line = f"- {md['event_title']} ({md['course'] or '-'}): {period}"
+            line = (f"- {md['event_title']} ({md['course'] or '-'}): {period}" if lang == "ko" else
+                    f"- {G.gloss(md['event_title'], G.EVENT)} — {G.gloss(md['course'] or '-', G.COURSE)}: {period}")
             claims.append(Claim(line, [citation_from(r | {"locator": f"학사일정 > {md['event_title']}"}, r["body"])]))
         return PartResult("answered", claims=claims, debug=dbg)
 
@@ -424,7 +509,8 @@ class LolypolyAdapter(Adapter):
             rows = [r for r in rows if r["metadata"].get("category") == cat or cat in r["title"]]
         rows.sort(key=lambda r: (r["published_at"] or date.min), reverse=True)
         if not rows:
-            return PartResult("insufficient_evidence", message="조건에 맞는 공지 레코드가 없어요.", debug={"rows": 0})
+            return PartResult("insufficient_evidence", message="조건에 맞는 공지 레코드가 없어요." if lang == "ko"
+                              else "No notice records match this.", debug={"rows": 0})
         claims = [Claim(f"- {r['title']} ({r['published_at']})",
                         [citation_from(r | {"locator": "공지 제목(본문 미수집)"}, r["title"], "제목만 있음")]) for r in rows[:5]]
         return PartResult("answered", claims=claims, debug={"rows": len(rows)})
@@ -499,3 +585,62 @@ def _meal_coverage(store) -> dict:
     last = max(collected) if collected else None
     return {"first": dates[0], "last": dates[-1],
             "last_collected": f"{last.astimezone(SEOUL):%Y-%m-%d %H:%M} KST" if last else None}
+
+
+def _en_paren(value: str, table: dict) -> str:
+    """영어 답에서 한국어 원문 뒤에 용어집 설명을 괄호로 붙인다(없으면 빈 문자열)."""
+    en = table.get((value or "").strip())
+    return f" ({en})" if en else ""
+
+
+# ── v0.6.0 일반 답변 정책(B안) ─────────────────────────
+# 기본값 제안: 켬. 학생 앱이라 '파이썬 리스트와 튜플 차이' 같은 학습·일반 질문이 들어오고, 학교 사실은 아래 용어로 막는다.
+# 끄기: RAG_GENERAL_LOLYPOLY=0
+LOLYPOLY_DOMAIN_TERMS = [
+    "학교", "캠퍼스", "대학", "폴리텍", "kopo", "춘천", "롤리폴리", "기숙사", "생활관", "등록금", "학비", "교육비", "장학", "학사", "식단", "학식",
+    "메뉴", "식당", "조식", "중식", "석식", "기말시험", "중간시험", "기말고사", "중간고사", "기말평가", "중간평가", "수강", "개강", "종강", "방학",
+    "졸업", "학위", "교수", "학과", "학생회", "도서관", "통학버스", "셔틀", "강의실", "성적", "휴학", "복학", "입학", "원서", "공지", "학번",
+    "총장", "학장", "조교", "행정실", "교무", "실습", "현장실습", "자격증", "취업", "축제", "동아리",
+    "school", "campus", "college", "university", "polytech", "dorm", "dormitory", "tuition", "scholarship", "professor",
+    "library", "cafeteria", "semester", "enrollment", "admission", "graduation", "exam", "exams", "department", "major",
+]
+
+
+def lolypoly_general_policy(school_names: list[str]) -> GeneralPolicy:
+    return GeneralPolicy(
+        enabled=os.environ.get("RAG_GENERAL_LOLYPOLY", "1").strip() != "0",
+        tone="You are a friendly senior student helping a college student. Talk kindly and briefly.",
+        scope="general study, technology, science or everyday-life knowledge (not about any school)",
+        max_chars=320,
+        banned_topics=[r"성적\s*(조작|위조)", r"대리\s*(출석|시험)", r"커닝|부정행위\s*방법"],
+        domain_terms=LOLYPOLY_DOMAIN_TERMS + school_names,
+        smalltalk={
+            "greet": {"ko": "안녕하세요! 롤리폴리 안내예요. 식단·학사일정·장학처럼 학교 공개 자료로 확인되는 내용을 출처와 함께 알려 드려요.",
+                      "en": "Hi! I'm the Lolypoly guide. I answer from the school's public data (meals, academic calendar, scholarships) with sources."},
+            "thanks": {"ko": "도움이 됐다니 다행이에요. 또 궁금한 게 있으면 물어봐 주세요.",
+                       "en": "Glad it helped. Ask me anything else anytime."},
+            "help": {"ko": "이렇게 물어보세요: \"11월 10일 점심 뭐야?\", \"기말시험 언제야?\", \"근로 장학금 조건 알려줘\". 답에는 출처가 붙고, "
+                           "자료에 없는 학교 정보는 지어내지 않고 '찾지 못했어요'라고 답해요.",
+                     "en": "Try: \"What's for lunch on Nov 10?\", \"When are final exams?\", \"Work-study scholarship conditions\". "
+                           "Answers come with sources; school facts that aren't in the data are never made up."},
+        })
+
+
+# ── v0.6.0 학교 기본 정보 카드 질문 판별 ─────────────────
+_SCHOOLISH = ["학교", "캠퍼스", "대학", "폴리텍", "school", "campus", "college"]
+CARD_LABEL_EN = {"address": "Campus address", "phone": "Main phone / fax", "admission_phone": "Admissions phone",
+                 "departments": "Departments by program", "departments_location_page": "Departments (location page)"}
+
+
+def _card_key(low: str) -> str | None:
+    if has_any(low, ["이메일", "메일 주소", "email", "e-mail"]):
+        return "email"
+    if has_any(low, ["건물", "본관", "강의동", "몇 동", "building"]):
+        return "buildings"
+    if has_any(low, ["어떤 학과", "무슨 학과", "학과들", "학과 목록", "학과가 있", "학과 알려", "departments", "what majors", "which majors"]):
+        return "departments"
+    if has_any(low, _SCHOOLISH) and has_any(low, ["주소", "위치", "어디에 있", "address", "location", "where is"]):
+        return "address"
+    if has_any(low, _SCHOOLISH) and has_any(low, ["전화", "연락처", "대표 번호", "대표번호", "팩스", "phone", "contact", "fax"]):
+        return "phone"
+    return None

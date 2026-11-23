@@ -1,0 +1,42 @@
+## 1 /rag/v1/public/chat POST, 허용 Origin, 방문객 IP A(CF-Connecting-IP)
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:8765
+x-request-id: 158046d1f0c4
+{"status":"insufficient_evidence","route":"document","answer":"정해진 시간 안에 근거로 확인된 답을 만들지…","citations":[{"source_id":"place:jongmyo-shrine","title":"종묘 (Jongmyo Shrine)","url":"ht
+## 2 CORS 사전 요청(OPTIONS), 허용 Origin
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:8765
+## 3 CORS 사전 요청, 허용 안 된 Origin
+HTTP/1.1 400 Bad Request
+## 4 /rag/v1/chat (앱 키 경로) → 막힘
+HTTP/1.1 404 Not Found
+{"error":"not_found"}
+## 5 /rag/health → 막힘
+HTTP/1.1 404 Not Found
+{"error":"not_found"}
+## 6 GET /rag/v1/public/chat → 405
+HTTP/1.1 405 Method Not Allowed
+{"error":"method_not_allowed"}
+## 7 큰 본문(9KB) → 413
+HTTP/1.1 413 Payload Too Large
+{"error":"too_large"}
+## 8.2 같은 방문객 IP A 반복(제한 3/분)
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:8765
+x-request-id: fb8253d0c496
+{"status":"answered","route":"smalltalk","answer":"Hi! I'm ARI. Ask me about the places and courses in MARU, an…","citations":[],"as_of":"2026-11-24T08:21:50.479695+09:00","request_id":"fb8253d0c496"}
+## 8.3 같은 방문객 IP A 반복(제한 3/분)
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:8765
+x-request-id: da9560e2dabb
+{"status":"answered","route":"smalltalk","answer":"Hi! I'm ARI. Ask me about the places and courses in MARU, an…","citations":[],"as_of":"2026-11-24T08:21:50.497125+09:00","request_id":"da9560e2dabb"}
+## 8.4 같은 방문객 IP A 반복(제한 3/분)
+HTTP/1.1 429 Too Many Requests
+Access-Control-Allow-Origin: http://127.0.0.1:8765
+Retry-After: 60
+{"detail":"too many requests"}
+## 9 다른 방문객 IP B → 제한 안 걸림
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://127.0.0.1:8765
+x-request-id: 6dc950af51cc
+{"status":"answered","route":"smalltalk","answer":"You're welcome! Enjoy your trip in Seoul.…","citations":[],"as_of":"2026-11-24T08:21:50.532806+09:00","request_id":"6dc950af51cc"}

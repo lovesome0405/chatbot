@@ -11,11 +11,13 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import date, datetime
 from pathlib import Path
 
 from ragcore import textnorm
+from ragcore.general import GeneralPolicy
 from ragcore.adapter import DETAIL_TERMS, Adapter, Claim, Part, PartResult, SyncBatch, has_any, is_time_sensitive
 from ragcore.engine import citation_from
 from ragcore.models import Chunk, Citation, Document
@@ -98,6 +100,10 @@ class MaruAdapter(Adapter):
                     self.aliases[short] = [r["nameKo"]]
         for cid, c in self._courses.items():
             self.aliases[c["title"]["en"].lower()] = [c["title"]["ko"]]
+        names = [n for r in self._places.values() for n in (r.get("nameKo"), r.get("nameEn")) if n]
+        names += [k for k in self.aliases if k not in self.base_aliases]     # 장소 영어 이름의 짧은 형태(gyeongbokgung 등)
+        names += [t for c in self._courses.values() for t in (c["title"].get("ko"), c["title"].get("en")) if t]
+        self.general_policy = maru_general_policy(names)
 
     # ── 적재 ───────────────────────────────
     def load(self) -> SyncBatch:
@@ -390,3 +396,32 @@ def _d(v):
 
 def detect_lang(text: str) -> str:
     return "ko" if textnorm.is_korean(text) else "en"
+
+
+# ── v0.6.0 일반 답변 정책(B안) ─────────────────────────
+# 기본값 제안: 끔. 공개 경로(/v1/public/chat)는 로그인 없는 방문객이 학교 PC 엔진을 직접 부르므로, 출처 없는 일반 답변까지 열면
+# 범용 챗봇처럼 쓰여 부하·오용 위험이 커진다. 공개 주소를 열고 요청량을 본 뒤 켠다. 켜기: RAG_GENERAL_MARU=1
+MARU_DOMAIN_TERMS = [
+    "궁궐", "경복궁", "창덕궁", "덕수궁", "창경궁", "경희궁", "종묘", "박물관", "한옥", "북촌", "시장", "광장", "코스", "루트", "동선",
+    "입장료", "관람료", "야간개장", "운영시간", "휴관", "휴궁", "개방", "예약", "서울",
+    "palace", "museum", "hanok village", "market", "course", "route", "ticket", "admission", "night opening", "opening hours",
+    "closed", "reservation", "seoul", "maru", "ari",
+]
+
+
+def maru_general_policy(place_names: list[str]) -> GeneralPolicy:
+    return GeneralPolicy(
+        enabled=os.environ.get("RAG_GENERAL_MARU", "0").strip() == "1",
+        tone="You are ARI, a warm travel helper for foreign visitors to Korea. Be brief and friendly.",
+        scope="general Korean culture, language, food and travel etiquette (not about any specific place, price or schedule)",
+        max_chars=320,
+        banned_topics=[],
+        domain_terms=MARU_DOMAIN_TERMS + list(SEOUL_GU) + list(SEOUL_GU.values()) + place_names,
+        smalltalk={
+            "greet": {"en": "Hi! I'm ARI. Ask me about the places and courses in MARU, and I'll answer with sources.",
+                      "ko": "안녕하세요! 아리예요. MARU의 장소와 코스를 물어보면 출처와 함께 알려 드려요."},
+            "thanks": {"en": "You're welcome! Enjoy your trip in Seoul.", "ko": "천만에요! 즐거운 여행 되세요."},
+            "help": {"en": "Try: \"Tell me about Jongmyo Shrine\" or \"Which course is good on a rainy day?\". "
+                           "I answer from MARU's data and official notices, with sources.",
+                     "ko": "\"종묘 알려줘\", \"비 오는 날 좋은 코스는?\"처럼 물어보세요. MARU 자료와 공식 공지를 근거로 답해요."},
+        })
