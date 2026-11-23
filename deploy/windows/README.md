@@ -128,7 +128,7 @@ D:\lolypoly\rag\ollama\ollama.exe ps
 `/health` 는 `"status":"ok"`, `"generator_ready":true`. `ollama ps` 는 `qwen2.5:1.5b  100% GPU ... Forever` 여야 한다(Forever 가 아니면 7절 ④).
 앱 키 경로 확인은 키를 명령줄에 쓰지 말고 파일에서 읽어 보낸다(2026-11-20: 맞는 키 200, 틀린 키 401 확인).
 롤리폴리 `.env`에 `LOLYPOLY_RAG_API_URL=http://127.0.0.1:8088`, `LOLYPOLY_RAG_APP_KEY=<같은 키>` 두 줄 → 웹앱 재시작 → 식단 화면에 안내 칸.
-롤리폴리 쪽 코드(`export_rag`, 안내 칸, D-073)는 LOLYPOLY `main` 3fd5417 부터 있다. 2026-11-20 학교 PC는 v0.4.0(afe70e2)이라 `update.ps1 -Branch main`(관리자) 이 먼저 필요하다.
+롤리폴리 쪽 코드(`export_rag`, 안내 칸, D-073)는 LOLYPOLY `main` 3fd5417 부터 있다. 학교 PC는 2026-11-23 `update.ps1 -Branch main`(관리자)으로 afe70e2 → 3fd5417 업데이트했다(아래 "운영 적용").
 끄기: 롤리폴리 두 값을 비우고 재시작(칸이 사라짐). 엔진 작업 해제(관리자): `Get-ScheduledTask RAG-* | Unregister-ScheduledTask -Confirm:$false`.
 
 ### 63문항 측정(학교 PC, 2026-11-20)
@@ -167,7 +167,21 @@ D:\lolypoly\rag\env\python -m ragcore.cli eval --generate --out reports\school-p
 - **캐시 폴더 권한**: 운영 웹앱(S4U 작업)이 만든 `%TEMP%\lolypoly-cache` 는 로그인한 사용자 세션에서 접근 거부된다. 같은 계정으로 롤리폴리 개발 서버·명령을 손으로 돌리면 파일 캐시가 임시 파일 만들기를 계속 재시도하며 **멈춘다**(안내 칸 질문이 응답 없음). 시험할 때는 `LOLYPOLY_CACHE_DIR` 를 다른 폴더로 준다. 운영 웹앱 자신은 해당 없음.
 - **Ollama 트레이 앱**: `run_ollama.ps1` 서버가 떠 있을 때 트레이 앱을 켜면 두 번째 서버를 띄우지 않고 기존 서버(11434)를 그대로 쓴다. 모델 상주(Forever) 유지. 트레이 앱의 1시간 간격 자동 업데이트가 서버를 건드리는지는 미확인.
 
+### 운영 적용(학교 PC, 2026-11-23)
+1. 손으로 띄워 둔 엔진(PostgreSQL·Ollama·API)을 멈추고 관리자 PowerShell 로 `install_tasks.ps1` 실행 → 종료 코드 0, `RAG-DB`·`RAG-Ollama`·`RAG-API`·`RAG-Refresh` 등록.
+   - `RAG-DB` 는 `pg_ctl start` 가 끝나면 작업 상태가 Ready(결과 0)로 바뀌지만 PostgreSQL 은 계속 떠 있다(정상).
+   - S4U(로그인 세션 밖) Ollama 도 GPU(GTX 1660 Ti, CUDA)를 잡았다. API 시작 때 `warm_model` 이 디스크에서 처음 적재해 **89.6초** 걸렸고(그동안 `/health` 응답 없음), 그 뒤 `/health` = ok, `ollama ps` = qwen2.5:1.5b 상주(Forever).
+2. 관리자 PowerShell 로 롤리폴리 `update.ps1 -Branch main` → afe70e2 → 3fd5417. 표별 행 수 그대로, 마이그레이션 0건, 응답 점검 6개 모두 기대값, 웹앱 재시작으로 `.env` 의 `LOLYPOLY_RAG_*` 두 줄 적용.
+3. `Start-ScheduledTask RAG-Refresh` → 작업 결과 0. 로그: export_rag(식단 105·일정 93·공지 42, 수집 상태 모두 success) · ingest(문서 284, 청크 535) · warm(1분 9초) · warm_model(4B 내리고 1.5B 0.2초) **모두 종료 코드 0**.
+4. 브라우저, 공개 주소 `https://lolypoly.lolypoly.workers.dev/meals/` 식단 화면: "11월 10일 점심 뭐야?" → 실제 메뉴와 출처([1] 2026-11-10(화) 중식 식단, 수집 DB). 엔진 로그 `route=structured, status=answered, 19.9ms`.
+5. **재부팅 확인은 하지 않았다**(이 PC는 다른 사람도 쓴다). 재부팅할 일이 생기면, 부팅 2~3분 뒤 로그인 없이(또는 로그인해서) `curl http://127.0.0.1:8088/health` 가 `"status":"ok"` 인지 본다. 작업 결과는 `Get-ScheduledTask RAG-* | Get-ScheduledTaskInfo`.
+
+발견한 것:
+- 롤리폴리 `.env` 의 `DJANGO_ALLOWED_HOSTS` 에 있는 `lolypoly.com` 은 2026-11-23 현재 다른 곳의 판매용 주차 도메인(GoDaddy)으로 열린다. 실제 공개 주소는 `lolypoly.lolypoly.workers.dev`. 로컬 `http://127.0.0.1:8000` 은 HTTPS 로 넘기므로(301) 브라우저 확인은 공개 주소로 한다.
+- 업데이트 직후 첫 방문에는 "Lolypoly가 새로워졌어요" 안내 창이 안내 칸 입력을 가린다(닫으면 정상).
+
 ## 6. 아직 정하지 않은 것
+- 재부팅 뒤 자동 시작: **미확인**(위 "운영 적용" 5). 작업 자체는 S4U 로 로그인 없이 실행되는 것을 수동 시작으로 확인했다.
 - MARU용 공개 주소: 기존 `lolypoly.lolypoly.workers.dev` Worker → 터널 구조에 `/rag/` 경로를 엔진 8088로 보내는 규칙을 추가하거나, 별도 호스트를 만든다. 어느 쪽이든 공개 경로는 `/v1/public/chat`만 열고 `/v1/chat`(앱 키 경로)은 열지 않는다.
 - 트레이 앱 자동 업데이트가 `RAG-Ollama` 서버를 멈추거나 바꾸는지: **미확인**(동시 실행 자체는 문제없음, 5절). 문제가 있으면 트레이 앱의 시작 프로그램 등록을 끈다.
 - 롤리폴리 `export_rag` 에 식사시간표(`meal_hours`) 추가(5절 발견).
@@ -184,5 +198,6 @@ D:\lolypoly\rag\env\python -m ragcore.cli eval --generate --out reports\school-p
 | ⑥ | API 가 도는 동안 `api.log` 를 읽을 수 없음 | 파이프라인 끝 `Add-Content` 가 파일을 독점으로 염 | `logutil.ps1` 의 `Out-Log`(읽기 공유, 줄마다 기록) |
 | ⑦ | `refresh.log` 에 stderr 줄마다 `위치 ... + CategoryInfo` 장식 | `Out-String -Stream` 이 ErrorRecord 를 서식화 | `Out-Log`(문자열로 기록), 단계 시작 때 `$LASTEXITCODE=-1` |
 | ⑧ | 로그인 없이 부팅된 상태에서 Ollama 없음 | 트레이 앱은 로그인 때만 시작 | `RAG-Ollama` 작업 추가 |
-| ⑨ | `install_tasks.ps1` 접근 거부(0x80070005) | S4U 작업 등록은 관리자 권한 필요 | 문서에 명시(4절). 등록은 사용자 승인 대기 |
+| ⑨ | `install_tasks.ps1` 접근 거부(0x80070005) | S4U 작업 등록은 관리자 권한 필요 | 문서에 명시(4절). 2026-11-23 관리자 PowerShell 로 등록 |
 | ⑩ | 문서: "엔진은 `.env` 를 스스로 읽지 않는다" | 실제로는 `load_dotenv()` 가 읽음 | 3절 문구 수정 |
+| ⑪ | (2026-11-23) 관리자 창으로 `update.ps1` 을 `*> 로그파일` 로 감싸 실행 → 1단계에서 종료 코드 1, 바뀐 것 없음 | ⑤와 같은 원인: 출력을 돌리면 `git fetch` 의 정상 stderr("From https://...")가 `Stop` 아래 NativeCommandError 가 됨 | 출력을 돌리지 말고 그대로 실행(기록이 필요하면 `Start-Transcript`). `update.ps1` 자체는 수정 불필요 |

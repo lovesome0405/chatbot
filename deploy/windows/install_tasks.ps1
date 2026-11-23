@@ -1,4 +1,4 @@
-﻿# 엔진 작업 등록(학교 PC). 여러 번 실행해도 안전(같은 이름은 덮어씀). 2026-11-20 학교 PC에서 관리자 권한 없이 실행·확인.
+﻿# 엔진 작업 등록(학교 PC). 여러 번 실행해도 안전(같은 이름은 덮어씀). 2026-11-23 학교 PC 관리자 PowerShell에서 등록·확인(일반 권한은 0x80070005).
 # 사용: powershell -ExecutionPolicy Bypass -File deploy\windows\install_tasks.ps1 [-RunAs <계정>] [-Root D:\lolypoly\rag]
 # 롤리폴리 install.ps1 과 같은 방식(S4U: 비밀번호 저장 없이, 로그인하지 않아도 이 계정으로 실행).
 param([string]$RunAs = "$env:USERDOMAIN\$env:USERNAME", [string]$Root = 'D:\lolypoly\rag')
