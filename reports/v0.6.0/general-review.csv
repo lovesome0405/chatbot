@@ -1,0 +1,12 @@
+﻿id,project,question,route,status,answer,Claude 1차,사람 판정(맞음/틀림/애매),메모
+G01,lolypoly,안녕!,smalltalk,answered,안녕하세요! 롤리폴리 안내예요. 식단·학사일정·장학처럼 학교 공개 자료로 확인되는 내용을 출처와 함께 알려 드려요.,,,
+G02,lolypoly,"고마워, 덕분에 알았어",smalltalk,answered,도움이 됐다니 다행이에요. 또 궁금한 게 있으면 물어봐 주세요.,,,
+G03,lolypoly,너는 뭘 물어볼 수 있어?,smalltalk,answered,"이렇게 물어보세요: ""11월 10일 점심 뭐야?"", ""기말시험 언제야?"", ""근로 장학금 조건 알려줘"". 답에는 출처가 붙고, 자료에 없는 학교 정보는 지어내지 않고 '찾지 못했어요'라고 답해요.",,,
+G04,maru,Hi there!,smalltalk,answered,"Hi! I'm ARI. Ask me about the places and courses in MARU, and I'll answer with sources.",,,
+G05,maru,Thanks a lot,smalltalk,answered,You're welcome! Enjoy your trip in Seoul.,,,
+C01,lolypoly,파이썬에서 리스트와 튜플의 차이가 뭐야?,general,answered,"파이썬에서 리스트와 튜플은 동일한 구조를 가지고 있지만, 튜플은 불변이기 때문에 변경할 수 없으며, 리스트는 변경 가능합니다.",부정확: '동일한 구조',,
+C02,lolypoly,광합성이 뭐야?,general,answered,광합성이 식물이 태양을 통해 산소와 물을 분비하는 과정입니다.,"틀림: 물은 흡수, 산소를 내놓음",,
+C03,lolypoly,시험 공부할 때 집중하는 방법 알려줘,general,answered,"시험을 치르기 전에 먼저 잠을 잘 때, 음식과 물을 충분히 섭취해야 합니다. 집중력 향상에 도움이 되는 음악을 들고, 휴식 시간을 정해놓고 공부를 나누는 것이 좋습니다.","어색한 문장, 내용 일부 부적절(음악을 '들고')",,
+C04,maru,How do I say thank you in Korean?,general,answered,"In Korean, you can say thank you by simply saying ""감사합니다"" (gamsahamnida).",맞음,,
+C05,maru,김치는 어떤 음식이야?,document,insufficient_evidence,확인된 자료에서는 찾지 못했어요. [1][2],,,
+C06,maru,What is a hanbok?,general,answered,"A hanbok is a traditional Korean dress consisting of a bodice and a skirt, worn by Koreans for centuries.",맞음,,

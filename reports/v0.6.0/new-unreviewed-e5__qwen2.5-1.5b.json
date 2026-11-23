@@ -1,10 +1,10 @@
 {
  "meta": {
-  "run_at": "2026-11-24T08:32:24+09:00",
+  "run_at": "2026-11-24T08:38:11+09:00",
   "questions": 24,
   "by_project": {
-   "lolypoly": 15,
-   "maru": 9
+   "maru": 9,
+   "lolypoly": 15
   },
   "embedder": "multilingual-e5-small@614241f",
   "generator": "ollama:qwen2.5:1.5b",
@@ -82,14 +82,14 @@
  "full": {
   "summary": {
    "route_accuracy": {
-    "ok": 22,
+    "ok": 23,
     "denominator": 24,
-    "rate": 0.917
+    "rate": 0.958
    },
    "status_accuracy": {
-    "ok": 22,
+    "ok": 23,
     "denominator": 24,
-    "rate": 0.917
+    "rate": 0.958
    },
    "structured_accuracy": {
     "ok": 0,
@@ -97,9 +97,9 @@
     "rate": null
    },
    "abstention_correct": {
-    "ok": 20,
+    "ok": 21,
     "denominator": 22,
-    "rate": 0.909
+    "rate": 0.955
    },
    "false_abstentions": {
     "count": 2,
@@ -128,21 +128,21 @@
    },
    "echo_like_model_claims": {
     "echo": 0,
-    "denominator": 4,
+    "denominator": 5,
     "examples": []
    },
    "model_echo_claims_enriched": 0,
    "korean_model_claims_haeyo": {
     "ok": 0,
-    "denominator": 2,
+    "denominator": 3,
     "rate": 0.0
    },
-   "model_calls_total": 9,
+   "model_calls_total": 10,
    "latency_ms": {
-    "mean": 2182.3,
-    "p50": 28.6,
-    "p95": 7562.5,
-    "max": 8024.2
+    "mean": 1979.3,
+    "p50": 32.1,
+    "p95": 7485.7,
+    "max": 8068.4
    },
    "failures": [
     {
@@ -154,16 +154,6 @@
      "route": "general",
      "key_facts_ok": false,
      "answer": "광합성이 식물이 태양을 통해 산소와 물을 분비하는 과정입니다."
-    },
-    {
-     "id": "C03",
-     "expected": [
-      "answered"
-     ],
-     "got": "insufficient_evidence",
-     "route": "document",
-     "key_facts_ok": null,
-     "answer": "확인된 자료에서는 찾지 못했어요."
     },
     {
      "id": "C05",
@@ -387,7 +377,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 1,
-    "latency_ms": 2612.8,
+    "latency_ms": 4203.8,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -420,7 +410,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 1,
-    "latency_ms": 1371.1,
+    "latency_ms": 1409.4,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -441,19 +431,19 @@
     "expected_route": "general",
     "question": "시험 공부할 때 집중하는 방법 알려줘",
     "language": "ko",
-    "route": "document",
+    "route": "general",
     "expected_status": [
      "answered"
     ],
-    "status": "insufficient_evidence",
-    "route_ok": false,
-    "status_ok": false,
+    "status": "answered",
+    "route_ok": true,
+    "status_ok": true,
     "answerable": "none",
     "key_facts_ok": null,
     "gold_cited": null,
     "leaks": [],
-    "model_calls": 0,
-    "latency_ms": 8024.2,
+    "model_calls": 1,
+    "latency_ms": 3688.1,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -461,7 +451,7 @@
     "dropped": [],
     "raw_outputs": [],
     "evidence_ids": [],
-    "answer": "확인된 자료에서는 찾지 못했어요.",
+    "answer": "시험을 치르기 전에 먼저 잠을 잘 때, 음식과 물을 충분히 섭취해야 합니다. 집중력 향상에 도움이 되는 음악을 들고, 휴식 시간을 정해놓고 공부를 나누는 것이 좋습니다.",
     "citations": []
    },
    {
@@ -486,7 +476,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 1,
-    "latency_ms": 2867.8,
+    "latency_ms": 1901.2,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -519,7 +509,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 1,
-    "latency_ms": 6586.1,
+    "latency_ms": 7485.7,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -588,7 +578,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 1,
-    "latency_ms": 7562.5,
+    "latency_ms": 3210.0,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -621,65 +611,32 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 1,
-    "latency_ms": 7691.6,
+    "latency_ms": 8068.4,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
     "echo_enriched": 0,
-    "dropped": [
-     {
-      "reason": "topic_not_in_citation",
-      "words": [
-       "기숙사비"
-      ],
-      "claim": "기숙사비는 2년간 교육비 전액면제입니다."
-     }
-    ],
-    "raw_outputs": [
-     "{\"claims\": [{\"text\": \"기숙사비는 2년간 교육비 전액면제입니다.\", \"citations\": [{\"id\": \"E1\", \"quote\": \"지급액 및 기간: 2년간 교육비 전액면제\"}]}]}"
-    ],
-    "evidence_ids": [
-     [
-      [
-       "E1",
-       "kopo-4799-scholarship",
-       "장학제도 표 > 행 1 (교내 / 이사장 장학금)"
-      ],
-      [
-       "E2",
-       "kopo-4799-scholarship",
-       "장학제도 표 > 행 2 (교내 / 성적우수 장학금)"
-      ],
-      [
-       "E3",
-       "kopo-4799-scholarship",
-       "장학제도 표 > 행 3 (교내 / 성적우수 장학금)"
-      ],
-      [
-       "E4",
-       "kopo-4799-scholarship",
-       "장학제도 표 > 행 8 (교내 / 근로 장학금)"
-      ]
-     ]
-    ],
-    "answer": "확인된 자료에서는 찾지 못했어요. [1][2][3]",
+    "dropped": [],
+    "raw_outputs": [],
+    "evidence_ids": [],
+    "answer": "정해진 시간 안에 근거로 확인된 답을 만들지 못했어요. 아래 관련 자료를 확인해 주세요. [1][2][3]",
     "citations": [
      {
       "source_id": "kopo-4799-scholarship",
       "quote": "[장학제도 표] 구분: 교내 | 종류: 이사장 장학금 | 수혜자격: 입학성적 전체 수석자 1명 | 지급액 및 기간: 2년간 교육비 전액면제 | 비고: 직전학기 성적 3.0이상",
-      "note": "관련 원문(답변 근거 아님)",
+      "note": "관련 원문(시간 안에 답을 만들지 못함)",
       "locator": "장학제도 표 > 행 1 (교내 / 이사장 장학금)"
      },
      {
       "source_id": "kopo-4799-scholarship",
       "quote": "[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 학과수석 입학자 1명 | 지급액 및 기간: 1년간 교육비 전액면제 | 비고: 직전학기 성적 3.0이상",
-      "note": "관련 원문(답변 근거 아님)",
+      "note": "관련 원문(시간 안에 답을 만들지 못함)",
       "locator": "장학제도 표 > 행 2 (교내 / 성적우수 장학금)"
      },
      {
       "source_id": "kopo-4799-scholarship",
       "quote": "[장학제도 표] 구분: 교내 | 종류: 성적우수 장학금 | 수혜자격: 직전학기 학과별 성적우수자 학급당 1명 | 지급액 및 기간: 1개학기 교육비 전액면제 | 비고: 직전학기 성적 3.0이상 신입생은 2학기부터 적용",
-      "note": "관련 원문(답변 근거 아님)",
+      "note": "관련 원문(시간 안에 답을 만들지 못함)",
       "locator": "장학제도 표 > 행 3 (교내 / 성적우수 장학금)"
      }
     ]
@@ -706,7 +663,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 1,
-    "latency_ms": 6586.2,
+    "latency_ms": 8000.7,
     "unknown_ids_from_model": 0,
     "quote_misses": 1,
     "value_mismatches": 0,
@@ -791,7 +748,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 0,
-    "latency_ms": 24.9,
+    "latency_ms": 28.0,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -824,7 +781,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 1,
-    "latency_ms": 6206.5,
+    "latency_ms": 6303.1,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -909,7 +866,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 0,
-    "latency_ms": 20.5,
+    "latency_ms": 19.3,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -955,7 +912,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 0,
-    "latency_ms": 23.0,
+    "latency_ms": 21.1,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -1001,7 +958,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 0,
-    "latency_ms": 17.0,
+    "latency_ms": 19.6,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -1034,7 +991,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 0,
-    "latency_ms": 22.3,
+    "latency_ms": 33.4,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -1067,7 +1024,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 0,
-    "latency_ms": 37.4,
+    "latency_ms": 41.4,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -1101,7 +1058,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 0,
-    "latency_ms": 14.7,
+    "latency_ms": 18.6,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -1135,7 +1092,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 0,
-    "latency_ms": 32.2,
+    "latency_ms": 30.8,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -1168,7 +1125,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 1,
-    "latency_ms": 2660.4,
+    "latency_ms": 3004.7,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
@@ -1201,7 +1158,7 @@
     "gold_cited": null,
     "leaks": [],
     "model_calls": 0,
-    "latency_ms": 14.4,
+    "latency_ms": 15.2,
     "unknown_ids_from_model": 0,
     "quote_misses": 0,
     "value_mismatches": 0,
