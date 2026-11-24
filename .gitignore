@@ -6,3 +6,17 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.log
+
+# 비밀·로컬 파일 차단 (2026-11-24 점검)
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+*.secret
+.npmrc
+.pypirc
+.DS_Store
+Thumbs.db
