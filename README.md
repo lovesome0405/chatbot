@@ -64,6 +64,8 @@ export PYTHONPATH=src:.
 - `POST /v1/public/chat` — 정적 웹용 공개 중계. `RAG_PUBLIC_PROJECT`(maru) 하나에만 묶이고, CORS는 허용한 Origin만 통과한다. IP당 분당 20회로 제한한다.
 - `GET /health` — DB, 임베딩, 생성 모델 준비 상태.
 - 응답 `{status, route, answer, citations[{source_id,title,url,quote,locator,as_of,source_type,note}], as_of, request_id}`. 상태는 `answered | partial | insufficient_evidence | clarification_needed | unavailable` 중 하나야.
+- `route` 값: `structured | document | composite | clarify | none` + **v0.6.0 추가** `smalltalk`(인사·감사·사용법 고정 응답, 모델 0회, 출처 없음) · `general`(앱 자료 밖 일반 질문의 **출처 없는 일반 답변**, `citations=[]`). 앱은 `general`에 "출처 없는 일반 답변" 표시를 붙여야 한다. 상태 값은 그대로다.
+- 일반 답변 정책은 어댑터마다 `general_policy`(켜기·말투·범위·최대 길이·금지 주제·도메인 용어·고정 응답)로 둔다. 기본값: 롤리폴리 켬(`RAG_GENERAL_LOLYPOLY=0`으로 끔), MARU 끔(`RAG_GENERAL_MARU=1`로 켬). 근거·제안은 `reports/v0.6.0/REPORT.md` 3절.
 - 로그에는 request_id·경로·상태·지연·모델·호출 수·조각 ID·오류 종류만 남는다. 질문 원문과 키는 남기지 않는다(테스트로 확인).
 - `reference_time`은 평가·데모용이고 `RAG_ALLOW_REFERENCE_TIME=1`일 때만 받는다.
 
@@ -74,8 +76,8 @@ export PYTHONPATH=src:.
 | `examples/ari_maru/ari-rag-bridge.js` | node에서 Ari `buildAriContext()` 모양의 객체로 호출. `ranking.topRoutes` 순서가 응답 인용 순서에 그대로 유지됨 | ari `app.js`는 수정하지 않았다. 장애 시 `fallbackAriReply`는 "로컬 안내(근거 검색 답변 아님)" 표시를 붙여 쓰도록 안내만 했다 |
 | `examples/maru-static/index.html` | Playwright로 390px 화면에서 실제 호출·렌더링, 가로 넘침 없음 (`reports/maru-static-demo.png`) | 공개 중계 엔드포인트만 쓴다. 공개 배포 시 HTTPS·도메인·남용 방지 정책이 따로 필요하다 |
 
-## 테스트 (2026-11-20 v0.5.0 실행)
-`pytest -q` → **67 passed** (v0.5.0: 단위 33 + 실제 PostgreSQL/pgvector 통합 34, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트를 돌린다. 앱 화면 E2E는 `e2e/apps.e2e.cjs`(실제 서버 필요, CI 밖).
+## 테스트 (2026-11-24 v0.6.0 실행)
+`pytest -q` → **75 passed** (v0.6.0: 단위 37 + 실제 PostgreSQL/pgvector 통합 38, fake 임베딩·생성). GitHub Actions(lovesome0405/chatbot)에서도 같은 테스트를 돌린다. 앱 화면 E2E는 `e2e/apps.e2e.cjs`(실제 서버 필요, CI 밖).
 판정 가능한 필수 조건은 모두 자동 테스트로 확인했다:
 
 | 필수 조건 | 테스트 |

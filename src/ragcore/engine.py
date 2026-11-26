@@ -14,7 +14,8 @@ from . import citations as citecheck
 from . import textnorm
 from .adapter import Adapter, Claim, Part, PartResult
 from . import extractive
-from .generation import GenerationError, GenerationTimeout, GenOutput
+from . import general as gen_policy
+from .generation import GenerationError, GenerationTimeout, GenOutput, ModelLoading
 from .models import ChatResult, Citation, Evidence
 from .retrieval import retrieve
 from .timeutil import seoul_now
@@ -30,8 +31,12 @@ MSG = {
     "unavailable": {"ko": "잠시 오류가 나서 답변을 만들지 못했어요. 아래는 확인할 수 있는 검색 결과예요(생성된 답변 아님).",
                     "en": "A temporary error prevented generating an answer. Below are search results you can check (not a generated answer)."},
     "partial": {"ko": "[일부는 확인하지 못했어요]", "en": "[Partly unconfirmed]"},
+    "declined": {"ko": "이 요청은 도와드릴 수 없어요. 앱 자료로 확인할 수 있는 질문을 해 주세요.",
+                 "en": "I can't help with that request. Please ask something the app's sources can answer."},
     "timeout": {"ko": "정해진 시간 안에 근거로 확인된 답을 만들지 못했어요. 아래 관련 자료를 확인해 주세요.",
                 "en": "I couldn't build a source-checked answer in time. Please check the related sources below."},
+    "loading": {"ko": "답변 모델을 준비하는 중이라 지금은 문장을 만들지 못했어요. 아래 관련 자료를 확인하거나 잠시 뒤 다시 물어봐 주세요.",
+                "en": "The answer model is still loading, so I couldn't write an answer yet. Please check the related sources below or ask again shortly."},
 }
 
 
@@ -76,6 +81,16 @@ class Engine:
         lang = language or ("ko" if textnorm.is_korean(question) else "en")
         ctx = adapter.validate_context(context or {})
         debug: dict = {"parts": [], "model_calls": 0, "chunk_ids": [], "errors": []}
+        policy: gen_policy.GeneralPolicy | None = getattr(adapter, "general_policy", None)
+        # v0.6.0 인사·감사·사용법: 질문 전체가 그것뿐이면 어댑터의 고정 응답(모델 0회, 출처 없음)
+        kind = gen_policy.smalltalk_kind(question) if policy else None
+        if kind and policy.smalltalk.get(kind):
+            texts = policy.smalltalk[kind]
+            res = ChatResult("answered", "smalltalk", texts.get(lang, texts.get("en", "")), [], now.isoformat(), request_id,
+                             debug=debug | {"smalltalk": kind, "latency_ms": round((time.perf_counter() - t0) * 1000, 1)})
+            log.info(json.dumps({"request_id": request_id, "project": project, "route": "smalltalk", "status": "answered",
+                                 "latency_ms": res.debug["latency_ms"], "model_calls": 0}, ensure_ascii=False))
+            return res
         # v0.5.0 미리 만든 답: 실제 요청(기준 시각 덮어쓰기 없음)에서만 쓴다. 평가·데모의 고정 시각 요청은 늘 새로 계산
         use_cache = self.settings.answer_cache and reference_time is None and mode is None
         key = version = None
@@ -107,6 +122,8 @@ class Engine:
             debug["errors"].append(type(exc).__name__)
             log.exception("chat failed")
             result = ChatResult("unavailable", "none", msg("unavailable", lang), [], now.isoformat(), request_id)
+        if policy and parts:
+            result = self._maybe_general(policy, question, ask_as, lang, parts, result, debug, t0, now, request_id)
         debug["latency_ms"] = round((time.perf_counter() - t0) * 1000, 1)
         debug["model"] = self.generator.name
         debug["embedder"] = self.embedder.name
@@ -122,6 +139,46 @@ class Engine:
             "chunk_ids": debug["chunk_ids"], "errors": debug["errors"],
         }, ensure_ascii=False))
         return result
+
+    # ── v0.6.0 일반 답변(B안) ───────────────
+    def _maybe_general(self, policy, question, ask_as, lang, parts, result: ChatResult, debug, t0, now, request_id) -> ChatResult:
+        """근거 없음(보류) + 도메인 밖 질문일 때만 출처 없는 일반 답변. 그 밖에는 result 를 그대로 돌려준다."""
+        if result.status != "insufficient_evidence" or len(parts) != 1 or parts[0].kind != "document":
+            return result
+        texts = [question] + ([ask_as] if ask_as else [])
+        why = next((b for t in texts if (b := gen_policy.banned(t, policy))), None)
+        if why:
+            debug["general"] = {"declined": why}
+            return ChatResult("insufficient_evidence", result.route, msg("declined", lang), [], now.isoformat(), request_id)
+        if not policy.enabled:
+            return result
+        if parts[0].time_sensitive:
+            debug["general"] = {"skip": "time_sensitive"}
+            return result
+        dom = next((d for t in texts if (d := gen_policy.is_domain_question(t, policy))), None)
+        cov = (debug["parts"][0].get("q_coverage") or 0) if debug["parts"] else 0
+        if not dom and cov >= gen_policy.DOMAIN_COVERAGE:
+            dom = f"coverage:{cov}"     # 질문 핵심어 대부분이 앱 자료 한 곳에 있음 = 앱 자료의 주제
+        if dom:
+            debug["general"] = {"skip": f"domain:{dom}"}
+            return result
+        # 같은 생성 예산 안에서: 문서 경로가 쓴 시간을 빼고 남은 만큼만(합계 10초 이내 유지)
+        remaining = (self.settings.gen_budget_s - (time.perf_counter() - t0)) if self.settings.gen_budget_s else None
+        if remaining is not None and remaining < 2:
+            debug["general"] = {"skip": "no_budget"}
+            return result
+        try:
+            text = self.generator.generate_text(gen_policy.system_prompt(policy, lang), question, lang, budget_s=remaining)
+        except GenerationError as exc:
+            debug["general"] = {"error": type(exc).__name__}
+            debug["errors"].append(f"general:{type(exc).__name__}")
+            return result
+        debug["model_calls"] += 1
+        ok, reason = gen_policy.check_answer(text, policy)
+        debug["general"] = {"raw": text[:600], "dropped": reason}
+        if not ok:
+            return result
+        return ChatResult("answered", "general", ok, [], now.isoformat(), request_id)
 
     # ── 부분 처리 ───────────────────────────
     def _run_part(self, adapter: Adapter, part: Part, lang: str, now: datetime, mode, debug) -> PartResult:
@@ -156,6 +213,7 @@ class Engine:
         if r.errors:
             dbg["error"] = ",".join(r.errors)
         evidences = [self._evidence(i, x) for i, x in enumerate(rows, start=1)]
+        dbg["q_coverage"] = extractive.coverage(part.user_text or part.text, evidences, adapter.aliases)
         title_only = [e for e in evidences if e.content_level == "title_only"]
         body = [e for e in evidences if e.content_level != "title_only"]
         if part.needs_detail and evidences and evidences[0].content_level == "title_only":
@@ -177,6 +235,13 @@ class Engine:
             return PartResult("insufficient_evidence", message=msg("insufficient", lang),
                               related=self._expired_related(adapter, part, as_of), debug=dbg)
 
+        pol = getattr(adapter, "general_policy", None)
+        if (pol and pol.enabled and not part.source_ids and dbg["q_coverage"] < gen_policy.OFF_TOPIC_COVERAGE
+                and not gen_policy.is_domain_question(part.user_text or part.text, pol)):
+            # v0.6.0: 앱 자료 주제가 아니고(도메인 용어 없음) 검색된 근거와도 거의 안 겹치는 질문 → 관련 없는 근거로 문장을
+            # 만들지 않는다(예: 'thank you 한국어' → 엉뚱한 장소 설명 인용). 일반 답변 단계가 같은 예산을 온전히 쓴다
+            dbg["off_topic"] = True
+            return PartResult("insufficient_evidence", message=msg("insufficient", lang), debug=dbg)
         body = self._diverse(body, self.settings.final_top_k, self.settings.max_chunks_per_source)
         for i, e in enumerate(body, start=1):  # 모델에 보낼 ID를 1부터 다시 매김
             e.eid = f"E{i}"
@@ -195,7 +260,7 @@ class Engine:
                 if isinstance(exc, GenerationTimeout):
                     # 시간 상한 초과 + 발췌할 문장 없음: 장애가 아니라 '시간 안에 확인된 답 없음'. 다시 시도해도 같으므로
                     # unavailable(앱이 오류·재시도로 처리) 대신 관련 자료와 함께 보류로 돌려준다
-                    return PartResult("insufficient_evidence", message=msg("timeout", lang),
+                    return PartResult("insufficient_evidence", message=msg("loading" if isinstance(exc, ModelLoading) else "timeout", lang),
                                       related=[citation_from(e, e.text[:120], "관련 원문(시간 안에 답을 만들지 못함)") for e in body[:3]],
                                       model_calls=1, debug=dbg)
                 return PartResult("unavailable", message=msg("unavailable", lang),
@@ -227,7 +292,8 @@ class Engine:
             rel = [citation_from(e, e.text[:120], "관련 원문(답변 근거 아님)") for e in body[:3]]
             return PartResult("insufficient_evidence", message=msg("insufficient", lang), related=rel, model_calls=1,
                               debug=dbg)
-        note = {"extractive": "원문 발췌(생성 시간 초과로 문장 생성 생략)",
+        note = {"extractive": "원문 발췌(모델 준비 중이라 문장 생성 생략)" if dbg.get("error") == "generation:ModelLoading"
+                else "원문 발췌(생성 시간 초과로 문장 생성 생략)",
                 "extractive_after_drop": "원문 발췌(모델 답이 근거 검증을 통과하지 못함)"}.get(fallback)
         # 짧은 발췌(short 인용)는 검증을 통과한 뒤 원문 문장 전체로 넓혀 보여 준다
         good_of = [[(ev, citecheck.expand_quote(q, ev.text)) for ev, q in good] for _, good in checked.claims]
@@ -362,6 +428,8 @@ def cache_key(project: str, question: str, lang: str, ctx: dict) -> str:
 def cacheable(result: ChatResult, parts) -> bool:
     """모델이 만든 답 중, 시점과 무관하고(기간·시점 질문 아님) 원문 발췌 대체가 아닌 것만 저장한다."""
     d = result.debug
+    if result.route in ("general", "smalltalk"):     # 출처 없는 답은 미리 만든 답으로 저장하지 않는다
+        return False
     if result.status not in ("answered", "partial") or not d.get("model_calls"):
         return False
     if any(getattr(p, "time_sensitive", False) for p in parts) or any(x.get("fallback") for x in d.get("parts", [])):

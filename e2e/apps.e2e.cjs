@@ -10,7 +10,8 @@ const { chromium, devices } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
-const OUT = path.join(__dirname, '..', 'reports', 'v0.5.0', 'e2e');
+const OUT = path.join(__dirname, '..', 'reports', 'v0.6.0', 'e2e');
+const WORKER = process.env.WORKER_URL || 'http://127.0.0.1:8787';   // v0.6.0: LOLYPOLY 공개 입구 Worker(wrangler dev) → 엔진
 const LOLY = process.env.LOLY_URL || 'http://127.0.0.1:8000';
 const MARU = process.env.MARU_URL || 'http://127.0.0.1:8765';
 const ENGINE = process.env.ENGINE_URL || 'http://127.0.0.1:8088';
@@ -139,6 +140,28 @@ async function lolypoly(browser) {
     record('lolypoly', `[모의] HTTP ${code} 안내와 입력 복구`, s.includes(kind) && (await page.inputValue('[data-assistant-input]')) === '오늘 저녁 뭐야?', { status: s });
     await page.unroute('**/assistant/ask/');
   }
+
+  // 8) v0.6.0 일반 답변 B안 · 인사 고정 응답 · 학교 기본 정보 카드([검수 가정] 사본으로 띄운 엔진)
+  await page.click('[data-assistant-clear]');
+  const hi = await ask('안녕!');
+  record('lolypoly', 'v0.6.0 인사 → 고정 응답(출처 없음, 일반 답변 표시 없음)', hi.text.includes('롤리폴리 안내예요') && !hi.cls.includes('is-general')
+    && hi.links.length === 0, { answer: hi.text, ms: hi.ms });
+  const gq = await ask('광합성이 뭐야?');
+  record('lolypoly', 'v0.6.0 학교 자료 밖 일반 질문 → "출처 없는 일반 답변" 표시, 출처 0개', gq.cls.includes('is-general')
+    && gq.text.includes('출처 없는 일반 답변') && gq.links.length === 0 && gq.ms < 10000, { answer: gq.text, ms: gq.ms });
+  await page.screenshot({ path: path.join(OUT, 'lolypoly-general-answer.png'), fullPage: false });
+  const trap = await ask('기숙사비 얼마야?');
+  record('lolypoly', 'v0.6.0 함정(자료 없는 학교 사실) → 보류, 일반 답변 아님', trap.cls.includes('is-insufficient_evidence')
+    && !trap.text.includes('출처 없는 일반 답변'), { answer: trap.text, ms: trap.ms });
+  const card = await ask('학교 주소 알려줘');
+  const cardLink = card.links.find((l) => l.href.includes('menu=4849'));
+  record('lolypoly', 'v0.6.0 학교 정보 카드 [검수 가정] → 공식 원문 인용·출처 링크(찾아오시는 길)', card.cls.includes('is-answered')
+    && card.text.includes('영서로 1290-31') && card.text.includes('공식 원문') && cardLink && cardLink.target === '_blank',
+    { answer: card.text, link: cardLink, ms: card.ms });
+  await page.screenshot({ path: path.join(OUT, 'lolypoly-school-card.png'), fullPage: false });
+  const missing = await ask('본관 건물은 어디에 있어?');
+  record('lolypoly', 'v0.6.0 카드에 없는 항목(주요 건물) → 보류, 지어내지 않음', missing.cls.includes('is-insufficient_evidence')
+    && missing.text.includes('확인하지 못한 항목'), { answer: missing.text });
 
   record('lolypoly', '모바일(iPhone 13) 가로 넘침 없음', await noHorizontalScroll(page));
   const slow = results.filter((r) => r.app === 'lolypoly' && typeof r.ms === 'number' && r.ms >= 10000);
@@ -334,6 +357,35 @@ async function maru(browser) {
   record('maru', '빠른 질문 버튼 → 10초 이내(미리 만든 답은 검토 승인 전이라 실시간 경로)', quick.ms < 10000
     && !quick.text.includes('Local guide'), quick);
   await p4.close();
+
+  // v0.6.0: 공개 입구 Worker(wrangler dev, /rag/v1/public/chat) → 엔진(RAG_GENERAL_MARU=1, 평가·시연용). 실제 Worker 배포는 미실행
+  endpoint = `${WORKER}/rag/v1/public/chat`;
+  const p5 = await ctx.newPage();
+  const viaWorker = [];
+  p5.on('request', (r) => { if (r.url().startsWith(WORKER)) viaWorker.push(r.url()); });
+  await p5.goto(`${MARU}/index.html`);
+  await p5.click('[data-ari-open]');
+  async function askP5(q) {
+    const mark = await lastAt(p5);
+    await p5.fill('[data-ari-input]', q);
+    const t0 = Date.now();
+    await p5.click('[data-ari-send]');
+    await waitReply(p5, mark);
+    const last = p5.locator('[data-ari-messages] .ari-message').last();
+    return { ms: Date.now() - t0, text: await last.innerText(), links: await last.locator('a').count() };
+  }
+  const wHi = await askP5('Hi there!');
+  record('maru', 'v0.6.0 Worker 경유: 인사 → 고정 응답', viaWorker.some((u) => u.endsWith('/rag/v1/public/chat')) && wHi.text.includes("I'm ARI")
+    && !wHi.text.includes('Local guide'), { answer: wHi.text, ms: wHi.ms, requests: viaWorker.slice(-1) });
+  const wGen = await askP5('What is a hanbok?');
+  record('maru', 'v0.6.0 Worker 경유: 일반 질문 → "General answer — no source" 표시, 출처 0개', wGen.text.includes('General answer — no source')
+    && wGen.links === 0 && wGen.ms < 10000, { answer: wGen.text, ms: wGen.ms });
+  await p5.screenshot({ path: path.join(OUT, 'maru-general-answer-via-worker.png'), fullPage: false });
+  const wTrap = await askP5('Is Bukchon Hanok Village open at night tomorrow?');
+  record('maru', 'v0.6.0 Worker 경유: 함정(내일 야간개장) → 보류, 일반 답변 표시 없음', !wTrap.text.includes('General answer')
+    && !wTrap.text.includes('Local guide'), { answer: wTrap.text, ms: wTrap.ms });
+  record('maru', 'v0.6.0 Worker 화면 가로 넘침 없음(Pixel 7)', await noHorizontalScroll(p5));
+  await p5.close();
   const slowM = results.filter((r) => r.app === 'maru' && typeof r.ms === 'number' && r.ms >= 10000);
   record('maru', '실제 경로 답변 모두 10초 이내(v0.5.0)', slowM.length === 0, { slow: slowM.map((r) => [r.name, r.ms]) });
   await ctx.close();

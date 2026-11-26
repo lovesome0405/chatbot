@@ -184,8 +184,9 @@ D:\lolypoly\rag\env\python -m ragcore.cli eval --generate --out reports\school-p
 - 재부팅 뒤 자동 시작: **미확인**(위 "운영 적용" 5). 작업 자체는 S4U 로 로그인 없이 실행되는 것을 수동 시작으로 확인했다.
 - MARU용 공개 주소: 기존 `lolypoly.lolypoly.workers.dev` Worker → 터널 구조에 `/rag/` 경로를 엔진 8088로 보내는 규칙을 추가하거나, 별도 호스트를 만든다. 어느 쪽이든 공개 경로는 `/v1/public/chat`만 열고 `/v1/chat`(앱 키 경로)은 열지 않는다.
 - 트레이 앱 자동 업데이트가 `RAG-Ollama` 서버를 멈추거나 바꾸는지: **미확인**(동시 실행 자체는 문제없음, 5절). 문제가 있으면 트레이 앱의 시작 프로그램 등록을 끈다.
-- 롤리폴리 `export_rag` 에 식사시간표(`meal_hours`) 추가(5절 발견).
-- 엔진 쪽 근본 수정(생성을 끊어도 Ollama 적재는 끝까지 하게 하거나, 모델이 적재 중이면 바로 원문 발췌로 답하기): 이 문서의 범위 밖. 지금은 상주·미리 적재로 피한다.
+- ~~롤리폴리 `export_rag` 에 식사시간표(`meal_hours`) 추가(5절 발견).~~ → v0.6.0 코드 반영(LOLYPOLY ERR-015, 브랜치 `claude/rag-v060`). 학교 PC 반영은 병합·`update.ps1` 뒤(요청문 `CLAUDE_V060_PROMPT.md`).
+- ~~엔진 쪽 근본 수정(모델이 적재 중이면 바로 원문 발췌로 답하기)~~ → v0.6.0 코드 반영: 모델이 메모리에 없으면 생성 요청을 보내지 않고 뒤에서 적재만 건다(이 세션 CPU 측정 `reports/v0.6.0/REPORT.md` 7절). 상주 설정(`OLLAMA_KEEP_ALIVE=-1m`)은 그대로 두는 것을 권한다. 학교 PC 측정은 요청문 4번.
+- MARU 공개 경로: v0.6.0 에서 LOLYPOLY Worker 에 `/rag/v1/public/chat` 규칙을 만들었다(로컬 검증만). 엔진 8088 용 VPC 서비스·배포는 승인 후(`CLAUDE_V060_PROMPT.md` "범위 밖").
 
 ## 7. 학교 PC 설치 기록(2026-11-20) — 원래 문서와 다르게 동작한 것
 | # | 증상 | 원인 | 고친 것 |

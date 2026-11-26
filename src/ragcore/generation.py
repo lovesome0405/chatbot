@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -140,9 +141,23 @@ class FakeGenerator:
             claims.append({"text": text, "citations": [{"id": "E99" if self.bad_citation else ev.eid, "quote": sent}]})
         return GenOutput(abstain=not claims, claims=claims, model=self.name, latency_ms=(time.perf_counter() - t) * 1000)
 
+    general_reply: str | None = None   # 테스트에서 일반 답변 출력을 정한다(None 이면 질문을 되돌리는 결정적 문장)
+
+    def generate_text(self, system: str, user: str, language: str, budget_s=None, max_tokens: int | None = None) -> str:
+        if self.fail:
+            raise GenerationError("fake generator failure")
+        if self.general_reply is not None:
+            return self.general_reply
+        return (f"(테스트 일반 답변) {user}에 대한 일반적인 설명이에요." if language == "ko"
+                else f"(test general answer) A general explanation about: {user}")
+
 
 class GenerationTimeout(GenerationError):
     """생성 시간 상한(gen_budget_s)을 넘김 → 엔진이 원문 발췌로 답한다."""
+
+
+class ModelLoading(GenerationTimeout):
+    """v0.6.0: 모델이 아직 메모리에 없다. 적재는 뒤에서 끝까지 진행하고, 이번 요청은 바로 원문 발췌로 답한다."""
 
 
 class OllamaGenerator:
@@ -153,6 +168,45 @@ class OllamaGenerator:
         self.url, self.model, self.timeout, self.format_mode = url.rstrip("/"), model, timeout_s, format_mode
         self.budget, self.max_tokens, self.keep_alive, self.quote_style = budget_s, max_tokens, keep_alive, quote_style
         self.name = f"ollama:{model}"
+        self._loaded_at = 0.0            # 마지막으로 '적재됨'을 확인한 시각(perf_counter)
+        self._loading = threading.Lock()  # 뒤에서 도는 적재 요청은 하나만
+
+    # ── v0.6.0 모델 적재 상태 ─────────────────────────
+    # 학교 PC에서 확인한 문제(deploy/windows/README 7절 ④): 생성 상한(8초)으로 요청을 끊으면 Ollama가 진행 중인
+    # 모델 적재까지 취소해서, 다음 질문도 처음부터 적재했다. 그래서 (1) 모델이 메모리에 없으면 생성 요청을 보내지 않고
+    # (2) 상한 없는 적재 요청을 뒤에서 한 번 보낸 뒤 (3) 이번 요청은 ModelLoading 으로 원문 발췌 경로를 탄다.
+    def is_loaded(self) -> bool | None:
+        """True=메모리에 있음, False=없음, None=확인 실패(이전처럼 바로 생성)."""
+        if time.perf_counter() - self._loaded_at < 30:
+            return True
+        try:
+            ps = httpx.get(f"{self.url}/api/ps", timeout=2).json()
+        except Exception:
+            return None
+        names = {m.get("name") for m in ps.get("models", [])} | {m.get("model") for m in ps.get("models", [])}
+        if self.model in names:
+            self._loaded_at = time.perf_counter()
+            return True
+        return False
+
+    def ensure_loading(self) -> bool:
+        """적재 요청을 뒤에서 보낸다(이미 진행 중이면 아무것도 안 함). 새로 시작했으면 True."""
+        if not self._loading.acquire(blocking=False):
+            return False
+
+        def run():
+            try:
+                body = {"model": self.model, "prompt": "", "stream": False}
+                if self.keep_alive:
+                    body["keep_alive"] = self.keep_alive
+                httpx.post(f"{self.url}/api/generate", json=body, timeout=600)   # 빈 프롬프트 = 적재만
+                self._loaded_at = time.perf_counter()
+            except Exception:
+                pass
+            finally:
+                self._loading.release()
+        threading.Thread(target=run, name="ollama-load", daemon=True).start()
+        return True
 
     def generate(self, question, language, evidences, today=None, persona="", budget_s=None):
         messages = build_messages(question, language, evidences, today, persona, self.quote_style)
@@ -167,9 +221,13 @@ class OllamaGenerator:
         t = time.perf_counter()
         budget = self.budget if budget_s is None else budget_s
         timeout = min(self.timeout, budget) if budget else self.timeout
+        if budget and self.is_loaded() is False:
+            self.ensure_loading()
+            raise ModelLoading(f"{self.model} not loaded; loading in background")
         try:
             r = httpx.post(f"{self.url}/api/chat", json=body, timeout=timeout)
             r.raise_for_status()
+            self._loaded_at = time.perf_counter()
             raw = r.json()["message"]["content"]
             data = parse_claims_json(raw)
         except httpx.TimeoutException as exc:   # 연결을 끊으면 Ollama 도 생성을 멈춘다
@@ -180,6 +238,28 @@ class OllamaGenerator:
         claims = [c for c in claims if isinstance(c, dict)] if isinstance(claims, list) else []
         return GenOutput(abstain=not claims, claims=claims, model=self.name,
                          latency_ms=(time.perf_counter() - t) * 1000, raw=raw)
+
+    def generate_text(self, system: str, user: str, language: str, budget_s=None, max_tokens: int | None = None) -> str:
+        """v0.6.0 일반 답변: 근거 없이 짧은 글만 만든다(JSON 아님). 같은 생성 예산, 모델이 없으면 적재만 걸고 실패."""
+        budget = self.budget if budget_s is None else budget_s
+        timeout = min(self.timeout, budget) if budget else self.timeout
+        if budget and self.is_loaded() is False:
+            self.ensure_loading()
+            raise ModelLoading(f"{self.model} not loaded; loading in background")
+        options = {"temperature": 0.2, "seed": 7, "num_ctx": 2048, "num_predict": max_tokens or self.max_tokens or 160}
+        body = {"model": self.model, "stream": False, "think": False, "options": options,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+        if self.keep_alive:
+            body["keep_alive"] = self.keep_alive
+        try:
+            r = httpx.post(f"{self.url}/api/chat", json=body, timeout=timeout)
+            r.raise_for_status()
+            self._loaded_at = time.perf_counter()
+            return r.json()["message"]["content"].strip()
+        except httpx.TimeoutException as exc:
+            raise GenerationTimeout(f"budget {timeout}s exceeded") from exc
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            raise GenerationError(f"{type(exc).__name__}: {exc}") from exc
 
     def health(self) -> bool:
         try:

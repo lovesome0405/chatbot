@@ -36,6 +36,14 @@ class ReplayGenerator:
         assert q == question, (q, question)
         self.queue, self.ev_ids = raws, evs
 
+    general_attempts: list[str] = []
+
+    def generate_text(self, system, user, language, budget_s=None, max_tokens=None):
+        """v0.6.0 일반 답변: 이전 실행에는 기록이 없다 → 시도한 문항만 세고 실패로 처리(원래 보류 유지).
+        실제 일반 답변 품질은 실생성 평가로 따로 잰다."""
+        self.general_attempts.append(user)
+        raise GenerationError("replay: no recorded general answer")
+
     def generate(self, question, language, evidences, today=None, persona="", budget_s=None):
         t = time.perf_counter()
         want = self.ev_ids
@@ -89,6 +97,7 @@ def main():
     rep["full"]["summary"]["latency_ms"] = original["full"]["summary"].get("latency_ms")
     rep["meta"]["replay_of"] = a.original
     rep["meta"]["evidence_changed"] = sorted(engine.generator.changed)
+    rep["meta"]["general_attempts(v0.6.0)"] = engine.generator.general_attempts
     out.write_text(json.dumps(rep, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
     print(json.dumps({"out": a.out, "evidence_changed": sorted(engine.generator.changed)}, ensure_ascii=False))
 
