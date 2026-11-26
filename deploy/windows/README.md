@@ -181,7 +181,13 @@ D:\lolypoly\rag\env\python -m ragcore.cli eval --generate --out reports\school-p
 2. 관리자 PowerShell 로 롤리폴리 `update.ps1 -Branch main` → afe70e2 → 3fd5417. 표별 행 수 그대로, 마이그레이션 0건, 응답 점검 6개 모두 기대값, 웹앱 재시작으로 `.env` 의 `LOLYPOLY_RAG_*` 두 줄 적용.
 3. `Start-ScheduledTask RAG-Refresh` → 작업 결과 0. 로그: export_rag(식단 105·일정 93·공지 42, 수집 상태 모두 success) · ingest(문서 284, 청크 535) · warm(1분 9초) · warm_model(4B 내리고 1.5B 0.2초) **모두 종료 코드 0**.
 4. 브라우저, 공개 주소 `https://lolypoly.lolypoly.workers.dev/meals/` 식단 화면: "11월 10일 점심 뭐야?" → 실제 메뉴와 출처([1] 2026-11-10(화) 중식 식단, 수집 DB). 엔진 로그 `route=structured, status=answered, 19.9ms`.
-5. **재부팅 확인은 하지 않았다**(이 PC는 다른 사람도 쓴다). 재부팅할 일이 생기면, 부팅 2~3분 뒤 로그인 없이(또는 로그인해서) `curl http://127.0.0.1:8088/health` 가 `"status":"ok"` 인지 본다. 작업 결과는 `Get-ScheduledTask RAG-* | Get-ScheduledTaskInfo`.
+5. 재부팅 뒤 자동 시작 — **확인(2026-11-26)**. 2026-11-23 에는 하지 않았고(이 PC는 다른 사람도 쓴다), 그날 허락을 받아 2026-11-26 에 재부팅했다. 부팅 10:09:05, 점검 10:11~10:12(부팅 2분 12초·3분 22초 뒤 두 번, 결과 같음).
+   - `Get-ScheduledTask RAG-* | Get-ScheduledTaskInfo`: `RAG-DB` 10:09:21 결과 0(Ready, 정상) · `RAG-Ollama` 10:09:21 Running(267009 = 실행 중) · `RAG-API` 10:10:21 Running(267009) · `RAG-Refresh` 다음 실행 11-27 07:10.
+   - `curl http://127.0.0.1:8088/health` → `"status":"ok"`, `generator_ready:true`, 문서 285 · 청크 536. `api.log`: 10:10:34 `warm_model` 1.5B 적재 11.7초 → `Uvicorn running on http://127.0.0.1:8088`, 그 사이 `Errno 10048` 없음.
+   - `ollama ps` → qwen2.5:1.5b, 100% GPU, CONTEXT 4096, UNTIL **Forever**.
+   - 공개 주소 식단 화면 "학생식당 몇 시까지 해?" → "학생식당 주중: 아침 08:00 - 08:50, 점심 11:50 - 13:20, 저녁 17:30 - 18:20 [1]" + 출처(학생식당 식사시간표, LOLYPOLY 수집 DB). 엔진 로그 `route=structured, status=answered, 367.8ms, model_calls=0`.
+   - 주의: 이 PC 는 부팅 18초 뒤(10:09:23) 대화형 로그온이 있었다(자동 로그온 또는 사용자). 그래서 "아무도 로그인하지 않은 상태"는 따로 확인하지 못했다. 다만 세 작업(S4U)은 로그온보다 먼저(10:09:21) 시작됐다.
+   - 이번 확인은 운영 main b50aff3 기준이다. 이 브랜치의 num_ctx 수정(7절 ⑬)은 아직 운영에 없다.
 
 발견한 것:
 - 롤리폴리 `.env` 의 `DJANGO_ALLOWED_HOSTS` 에 있는 `lolypoly.com` 은 2026-11-23 현재 다른 곳의 판매용 주차 도메인(GoDaddy)으로 열린다. 실제 공개 주소는 `lolypoly.lolypoly.workers.dev`. 로컬 `http://127.0.0.1:8000` 은 HTTPS 로 넘기므로(301) 브라우저 확인은 공개 주소로 한다.
@@ -193,7 +199,7 @@ D:\lolypoly\rag\env\python -m ragcore.cli eval --generate --out reports\school-p
 3. 일반 답변이 상주 모델을 내리는 문제 발견(7절 ⑬) → 브랜치 `claude/school-pc-v060` 에서 수정. 운영 반영은 main 병합 + RAG-API 재시작 뒤.
 
 ## 6. 아직 정하지 않은 것
-- 재부팅 뒤 자동 시작: **미확인**(위 "운영 적용" 5). 작업 자체는 S4U 로 로그인 없이 실행되는 것을 수동 시작으로 확인했다.
+- ~~재부팅 뒤 자동 시작: 미확인~~ → 2026-11-26 재부팅으로 확인(위 "운영 적용" 5). 부팅 직후 대화형 로그온이 있어 "로그인 전혀 없음" 상태만 따로 확인하지 못했다.
 - MARU용 공개 주소: 기존 `lolypoly.lolypoly.workers.dev` Worker → 터널 구조에 `/rag/` 경로를 엔진 8088로 보내는 규칙을 추가하거나, 별도 호스트를 만든다. 어느 쪽이든 공개 경로는 `/v1/public/chat`만 열고 `/v1/chat`(앱 키 경로)은 열지 않는다.
 - 트레이 앱 자동 업데이트가 `RAG-Ollama` 서버를 멈추거나 바꾸는지: **미확인**(동시 실행 자체는 문제없음, 5절). 문제가 있으면 트레이 앱의 시작 프로그램 등록을 끈다.
   - 2026-11-26 관찰: 트레이 앱이 09:24 에 업데이트 설치 파일(`%LOCALAPPDATA%\Ollama\updates_v2\<해시>\OllamaSetup.exe`, 1.9GB)을 받아 두었고, 로그인 세션에서 `ollama` 프로세스를 약 5초마다 새로 띄웠다 끝낸다(`ollama.pid` 가 계속 바뀜). `RAG-Ollama` 서버(세션 0, 0.40.16)와 상주 모델은 5분 지켜본 동안 영향이 없었다(모델이 빠진 원인은 7절 ⑬). 설치 파일이 실행되면 서버 버전이 바뀔 수 있으므로 업데이트 알림은 누르지 않는다.
