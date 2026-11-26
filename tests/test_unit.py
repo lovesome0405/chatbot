@@ -443,3 +443,20 @@ def test_model_not_loaded_returns_loading_without_calling_chat(monkeypatch):
     with pytest.raises(g.ModelLoading):
         gen.generate("q", "ko", [])
     assert calls == ["load"]                       # 생성 요청을 보내지 않음(적재를 취소시키지 않기)
+
+
+def test_all_generation_requests_share_num_ctx(monkeypatch):
+    """num_ctx 가 다르면 Ollama 가 모델을 다시 적재한다 → 학교 PC 에서 8초 상한에 걸려 모델이 빠졌다(2026-11-26)."""
+    from ragcore import generation as g
+    sent = []
+
+    class R:
+        def raise_for_status(self): pass
+        def json(self): return {"message": {"content": '{"claims": []}'}}
+
+    gen = g.OllamaGenerator("http://x", "m", budget_s=8)
+    monkeypatch.setattr(gen, "is_loaded", lambda: True)
+    monkeypatch.setattr(g.httpx, "post", lambda url, json=None, **k: sent.append(json["options"]["num_ctx"]) or R())
+    gen.generate("q", "ko", [])
+    gen.generate_text("sys", "q", "ko")
+    assert sent == [g.NUM_CTX, g.NUM_CTX]

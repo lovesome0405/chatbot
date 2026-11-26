@@ -1,0 +1,2 @@
+﻿id,question,language,generated_by,claim,cited_quotes(this claim only),gold_locator,key_facts,auto_key_facts_ok,human_supports_claim(Y/N),human_complete(Y/N),human_note
+H08,Which district is Deoksugung Palace in?,en,model,"Deoksugung Palace is located in Jongno 3-gil, Seoul. [1]",place:deoksugung-palace [덕수궁 (Deoksugung Palace) > 문단 1] 덕수궁 (Deoksugung Palace) — 궁궐 / 중구,,중구,True,,,

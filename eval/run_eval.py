@@ -131,6 +131,8 @@ def full_eval(engine, qs) -> dict:
             "dropped": [d for p in doc_parts for d in p.get("dropped", [])],
             "raw_outputs": [p.get("raw_output") for p in doc_parts if p.get("raw_output")],
             "evidence_ids": [p.get("evidence_ids") for p in doc_parts if p.get("evidence_ids")],
+            # 일반 답변 시도 기록(버려진 이유 debug.general.dropped 등)과 오류 — 학교 PC 모델 비교용(2026-11-26)
+            "general": res.debug.get("general"), "errors": res.debug.get("errors", []),
             "answer": res.answer, "citations": [{"source_id": c.source_id, "quote": c.quote, "note": c.note,
                                                   "locator": c.locator} for c in res.citations],
         }

@@ -131,6 +131,12 @@ D:\lolypoly\rag\ollama\ollama.exe ps
 롤리폴리 쪽 코드(`export_rag`, 안내 칸, D-073)는 LOLYPOLY `main` 3fd5417 부터 있다. 학교 PC는 2026-11-23 `update.ps1 -Branch main`(관리자)으로 afe70e2 → 3fd5417 업데이트했다(아래 "운영 적용").
 끄기: 롤리폴리 두 값을 비우고 재시작(칸이 사라짐). 엔진 작업 해제(관리자): `Get-ScheduledTask RAG-* | Unregister-ScheduledTask -Confirm:$false`.
 
+**엔진 코드를 바꾼 뒤 재시작(관리자 PowerShell 필요, 7절 ⑫)** — `git pull` 만으로는 돌고 있는 API 가 바뀌지 않는다:
+```powershell
+Stop-ScheduledTask RAG-API; Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object CommandLine -like '*uvicorn*ragcore.api*' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }; Start-ScheduledTask RAG-API
+```
+확인: `api.log` 에 새 `Started server process` → `Uvicorn running on http://127.0.0.1:8088`(그 사이 `Errno 10048` 이 없어야 함), `/health` = ok.
+
 ### 63문항 측정(학교 PC, 2026-11-20)
 평가 문항은 저장소 fixture 기준이라 운영 DB와 섞이지 않게 별도 DB 에서 잰다:
 ```powershell
@@ -140,20 +146,21 @@ $env:DATABASE_URL='postgresql://rag@127.0.0.1:54329/rag_eval'; $env:RAG_LOLYPOLY
 D:\lolypoly\rag\env\python -m ragcore.cli ingest
 D:\lolypoly\rag\env\python -m ragcore.cli eval --generate --out reports\school-pc.json
 ```
-| 지표 | 클라우드 4코어 CPU (SPEED.md, 1.5B [재생]) | 학교 PC, 모델 차가운 상태 (`school-pc.json`) | **학교 PC, 모델 상주** (`school-pc-warm.json`) |
-|---|---|---|---|
-| 10초 이내 답변 | 63/63 | 63/63 | **63/63** |
-| 지연 평균 / p95 / 최대 | 2.6 / 8.0 / 8.1초 | 3.3 / 8.0 / 8.3초 | **0.5 / 1.5 / 2.2초** |
-| 상태 일치 | 56/63 | 54/63 | **57/63** |
-| 생성이 8초 안에 끝난 횟수 | 20/26 | 0/26 (전부 적재 중 취소) | **26/26** |
-| 답할 수 있는데 보류 | 6/48 | 8/48 | 6/48 |
-| 핵심 사실 · 기대 출처 인용 | 43/43 · 40/43 | 40/41 · 39/41 | 43/44 · 41/44 |
-| 정형 정답 · 노출 | 10/10 · 0 | 10/10 · 0 | 10/10 · 0 |
-| 영어 질문 → 영어 답 | 6/10 | 6/10 | 7/10 |
+| 지표 | 클라우드 4코어 CPU (SPEED.md, 1.5B [재생]) | 학교 PC, 모델 차가운 상태 (`school-pc.json`) | **학교 PC, 모델 상주** (`school-pc-warm.json`) | **학교 PC v0.6.0, 모델 상주** (`school-pc-v060/eval-63.json`, 2026-11-26) |
+|---|---|---|---|---|
+| 10초 이내 답변 | 63/63 | 63/63 | **63/63** | **63/63** |
+| 지연 평균 / p95 / 최대 | 2.6 / 8.0 / 8.1초 | 3.3 / 8.0 / 8.3초 | **0.5 / 1.5 / 2.2초** | **0.6 / 1.5 / 4.1초** |
+| 상태 일치 | 56/63 | 54/63 | **57/63** | **57/63** |
+| 생성이 8초 안에 끝난 횟수 | 20/26 | 0/26 (전부 적재 중 취소) | **26/26** | **26/26** (최대 지연 4.1초) |
+| 답할 수 있는데 보류 | 6/48 | 8/48 | 6/48 | 6/48 |
+| 핵심 사실 · 기대 출처 인용 | 43/43 · 40/43 | 40/41 · 39/41 | 43/44 · 41/44 | 43/44 · 41/44 |
+| 정형 정답 · 노출 | 10/10 · 0 | 10/10 · 0 | 10/10 · 0 | 10/10 · 0 |
+| 영어 질문 → 영어 답 | 6/10 | 6/10 | 7/11 (이전 표기 7/10 은 오기, JSON 분모 11) | **11/11** |
 
 - 같은 63문항, 같은 모델(qwen2.5:1.5b), e5-small, 생성 상한 8초. 클라우드 열은 [재생] 값이고 학교 PC 두 열은 [실생성] 값이다.
 - 첫 측정은 모델이 메모리에 없는 상태에서 시작해, 생성 26회가 모두 적재 중에 8초 상한으로 끊겼다(7절 ④). 상주시킨 뒤 같은 명령으로 다시 쟀다.
 - 첫 측정은 211초 걸렸다(클라우드 예상 약 10분). 상주 측정의 소요 시간은 따로 재지 않았다.
+- v0.6.0 열(2026-11-26): 같은 명령, 같은 조건(모델 상주 확인 후 시작). 63문항 42초. 검증 질문 25개와 v0.6.0 새 질문 24개는 `reports/school-pc-v060/REPORT.md`.
 
 ### 롤리폴리 main 사전 확인(운영과 분리한 시험본, 2026-11-20)
 운영 롤리폴리 업데이트(관리자 필요) 전에, LOLYPOLY `main`(3fd5417)을 임시 폴더에 복제하고 **운영 DB 사본**·운영 venv·다른 포트(8001, 개발 서버)로 띄워 확인했다. 운영 코드·DB·웹앱은 바꾸지 않았고, 시험본과 DB 사본은 확인 뒤 지웠다.
@@ -180,10 +187,16 @@ D:\lolypoly\rag\env\python -m ragcore.cli eval --generate --out reports\school-p
 - 롤리폴리 `.env` 의 `DJANGO_ALLOWED_HOSTS` 에 있는 `lolypoly.com` 은 2026-11-23 현재 다른 곳의 판매용 주차 도메인(GoDaddy)으로 열린다. 실제 공개 주소는 `lolypoly.lolypoly.workers.dev`. 로컬 `http://127.0.0.1:8000` 은 HTTPS 로 넘기므로(301) 브라우저 확인은 공개 주소로 한다.
 - 업데이트 직후 첫 방문에는 "Lolypoly가 새로워졌어요" 안내 창이 안내 칸 입력을 가린다(닫으면 정상).
 
+### v0.6.0 업데이트(학교 PC, 2026-11-26) — 상세·수치 `reports/school-pc-v060/REPORT.md`
+1. 엔진 `git pull`(main b50aff3) → RAG-API 재시작은 **관리자 필요**(위 명령, 7절 ⑫). 롤리폴리 `update.ps1 -Branch main`(관리자) 3fd5417 → 97142cf, 마이그레이션 `campus.0006_mealhours` 1개.
+2. 식단 수집 1회 → `RAG-Refresh`: `export_rag` 에 `meal_hours` 1행·success, `ingest` lolypoly success(이전 partial). 공개 화면 "학생식당 몇 시까지 해?" → 정형 답 + 출처.
+3. 일반 답변이 상주 모델을 내리는 문제 발견(7절 ⑬) → 브랜치 `claude/school-pc-v060` 에서 수정. 운영 반영은 main 병합 + RAG-API 재시작 뒤.
+
 ## 6. 아직 정하지 않은 것
 - 재부팅 뒤 자동 시작: **미확인**(위 "운영 적용" 5). 작업 자체는 S4U 로 로그인 없이 실행되는 것을 수동 시작으로 확인했다.
 - MARU용 공개 주소: 기존 `lolypoly.lolypoly.workers.dev` Worker → 터널 구조에 `/rag/` 경로를 엔진 8088로 보내는 규칙을 추가하거나, 별도 호스트를 만든다. 어느 쪽이든 공개 경로는 `/v1/public/chat`만 열고 `/v1/chat`(앱 키 경로)은 열지 않는다.
 - 트레이 앱 자동 업데이트가 `RAG-Ollama` 서버를 멈추거나 바꾸는지: **미확인**(동시 실행 자체는 문제없음, 5절). 문제가 있으면 트레이 앱의 시작 프로그램 등록을 끈다.
+  - 2026-11-26 관찰: 트레이 앱이 09:24 에 업데이트 설치 파일(`%LOCALAPPDATA%\Ollama\updates_v2\<해시>\OllamaSetup.exe`, 1.9GB)을 받아 두었고, 로그인 세션에서 `ollama` 프로세스를 약 5초마다 새로 띄웠다 끝낸다(`ollama.pid` 가 계속 바뀜). `RAG-Ollama` 서버(세션 0, 0.40.16)와 상주 모델은 5분 지켜본 동안 영향이 없었다(모델이 빠진 원인은 7절 ⑬). 설치 파일이 실행되면 서버 버전이 바뀔 수 있으므로 업데이트 알림은 누르지 않는다.
 - ~~롤리폴리 `export_rag` 에 식사시간표(`meal_hours`) 추가(5절 발견).~~ → v0.6.0 코드 반영(LOLYPOLY ERR-015, 브랜치 `claude/rag-v060`). 학교 PC 반영은 병합·`update.ps1` 뒤(요청문 `CLAUDE_V060_PROMPT.md`).
 - ~~엔진 쪽 근본 수정(모델이 적재 중이면 바로 원문 발췌로 답하기)~~ → v0.6.0 코드 반영: 모델이 메모리에 없으면 생성 요청을 보내지 않고 뒤에서 적재만 건다(이 세션 CPU 측정 `reports/v0.6.0/REPORT.md` 7절). 상주 설정(`OLLAMA_KEEP_ALIVE=-1m`)은 그대로 두는 것을 권한다. 학교 PC 측정은 요청문 4번.
 - MARU 공개 경로: v0.6.0 에서 LOLYPOLY Worker 에 `/rag/v1/public/chat` 규칙을 만들었다(로컬 검증만). 엔진 8088 용 VPC 서비스·배포는 승인 후(`CLAUDE_V060_PROMPT.md` "범위 밖").
@@ -202,3 +215,5 @@ D:\lolypoly\rag\env\python -m ragcore.cli eval --generate --out reports\school-p
 | ⑨ | `install_tasks.ps1` 접근 거부(0x80070005) | S4U 작업 등록은 관리자 권한 필요 | 문서에 명시(4절). 2026-11-23 관리자 PowerShell 로 등록 |
 | ⑩ | 문서: "엔진은 `.env` 를 스스로 읽지 않는다" | 실제로는 `load_dotenv()` 가 읽음 | 3절 문구 수정 |
 | ⑪ | (2026-11-23) 관리자 창으로 `update.ps1` 을 `*> 로그파일` 로 감싸 실행 → 1단계에서 종료 코드 1, 바뀐 것 없음 | ⑤와 같은 원인: 출력을 돌리면 `git fetch` 의 정상 stderr("From https://...")가 `Stop` 아래 NativeCommandError 가 됨 | 출력을 돌리지 말고 그대로 실행(기록이 필요하면 `Start-Transcript`). `update.ps1` 자체는 수정 불필요 |
+| ⑫ | (2026-11-26) 일반 권한으로 `Stop-ScheduledTask RAG-API` → `Start-ScheduledTask RAG-API` 했더니 예전 코드가 계속 응답, 새 API 는 `[Errno 10048]`(8088 사용 중)으로 바로 종료 | 작업을 멈춰도 `run_api.ps1` 이 띄운 python(uvicorn)은 남는다. S4U(세션 0) 프로세스라 로그인한 사용자 권한으로는 명령줄도 안 보이고 `Stop-Process` 는 접근 거부 | 관리자 PowerShell 로 uvicorn 까지 끄고 다시 시작(5절 명령). 그 사이 엔진은 예전 코드로 계속 응답하므로 서비스는 끊기지 않는다 |
+| ⑬ | (2026-11-26, v0.6.0) 일반 답변(route=general) 질문이 들어올 때마다 상주 모델이 메모리에서 빠짐 → "광합성이 뭐야?" 8초 시간 초과, 그 뒤 문서 질문도 '준비 중' | 일반 답변 요청만 `num_ctx=2048`(문서 생성·`warm_model` 은 4096). Ollama 는 `num_ctx` 가 바뀌면 모델을 통째로 다시 적재하는데, 이 PC 에서는 재적재가 8초 상한을 넘어 취소되고 모델이 빠진 채로 남는다. Ollama 로그에는 내림이 찍히지 않고(디버그 수준) 다음 적재만 보인다. 클라우드 CPU 에서는 재적재가 빨라 드러나지 않았다 | 모든 생성 요청이 같은 `NUM_CTX=4096`(`src/ragcore/generation.py`, 단위 테스트 추가). 브랜치 `claude/school-pc-v060`, main 병합·RAG-API 재시작(관리자) 전에는 운영에 미반영 |

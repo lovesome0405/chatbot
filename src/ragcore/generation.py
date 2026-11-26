@@ -160,6 +160,12 @@ class ModelLoading(GenerationTimeout):
     """v0.6.0: 모델이 아직 메모리에 없다. 적재는 뒤에서 끝까지 진행하고, 이번 요청은 바로 원문 발췌로 답한다."""
 
 
+# 모든 생성 요청(문서·일반 답변)과 warm_model.ps1(Ollama 기본값)이 같은 컨텍스트 크기를 써야 한다.
+# Ollama 는 num_ctx 가 바뀌면 모델을 통째로 다시 적재한다. 학교 PC(GPU, D: HDD)에서는 재적재가 8초 상한을 넘어
+# 취소되고 모델이 메모리에서 빠졌다(2026-11-26, 일반 답변 num_ctx=2048 → 다음 문서 질문까지 '준비 중').
+NUM_CTX = 4096
+
+
 class OllamaGenerator:
     def __init__(self, url: str, model: str, timeout_s: int = 180, format_mode: str = "json", budget_s: float = 0,
                  max_tokens: int = 0, keep_alive: str = "", quote_style: str = "full"):
@@ -210,7 +216,7 @@ class OllamaGenerator:
 
     def generate(self, question, language, evidences, today=None, persona="", budget_s=None):
         messages = build_messages(question, language, evidences, today, persona, self.quote_style)
-        options = {"temperature": 0, "seed": 7, "num_ctx": 4096}
+        options = {"temperature": 0, "seed": 7, "num_ctx": NUM_CTX}
         if self.max_tokens:
             options["num_predict"] = self.max_tokens
         # think=False: Qwen3 계열의 '생각 모드'를 끈다(CPU에서 수십 초 더 걸림). 생각 모드가 없는 모델은 무시한다
@@ -246,7 +252,7 @@ class OllamaGenerator:
         if budget and self.is_loaded() is False:
             self.ensure_loading()
             raise ModelLoading(f"{self.model} not loaded; loading in background")
-        options = {"temperature": 0.2, "seed": 7, "num_ctx": 2048, "num_predict": max_tokens or self.max_tokens or 160}
+        options = {"temperature": 0.2, "seed": 7, "num_ctx": NUM_CTX, "num_predict": max_tokens or self.max_tokens or 160}
         body = {"model": self.model, "stream": False, "think": False, "options": options,
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
         if self.keep_alive:

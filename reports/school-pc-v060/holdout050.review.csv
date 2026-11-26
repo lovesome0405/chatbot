@@ -1,0 +1,2 @@
+﻿id,question,language,generated_by,claim,cited_quotes(this claim only),gold_locator,key_facts,auto_key_facts_ok,human_supports_claim(Y/N),human_complete(Y/N),human_note
+P06,하이테크과정 기말시험 언제야?,ko,server_template,- 기말시험 (하이테크과정): 2026-06-22~2026-06-26 (지난 일정) [1],event:하이테크과정:기말시험:2026-06-22:2026-06-26 [학사일정 > 기말시험] 학사일정 기말시험 | 과정: 하이테크과정 | 기간: 2026-06-22 ~ 2026-06-26,,하이테크,True,,,
